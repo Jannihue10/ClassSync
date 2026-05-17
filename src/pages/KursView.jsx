@@ -145,7 +145,8 @@ export default function KursView({ kurs, klasseId, onBack }) {
   const [hausaufgaben, setHAs]  = useState([]);
   const [pruefungen, setPrs]    = useState([]);
   const [chatMsgs, setChat]     = useState([]);
-  const [viewer, setViewer]     = useState(null);
+  const [viewerId, setViewerId] = useState(null);
+  const viewer = materialien.find(m => m.id === viewerId) || null;
   const [uploading, setUploading] = useState(false);
   const [addingHA, setAddingHA]   = useState(false);
   const [addingPr, setAddingPr]   = useState(false);
@@ -207,7 +208,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
-      {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewer(null)} isAdmin={canEdit} />}
+      {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
       {uploading  && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
       {addingHA   && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
       {addingPr   && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
@@ -287,7 +288,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
                 const mc = MAT_COLORS[m.typ] || col;
                 const hasLiked = m.likes?.includes(profile.uid);
                 return (
-                  <div key={m.id} onClick={() => setViewer(m)}
+                  <div key={m.id}                     onClick={() => setViewerId(m.id)}
                     style={{ background: t.bgCard, borderRadius: 14, padding: 18, cursor: "pointer", border: `1px solid ${t.border}`, transition: "all .15s", display: "flex", flexDirection: "column", gap: 12 }}
                     onMouseOver={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
                     onMouseOut={e => { e.currentTarget.style.background = t.bgCard; e.currentTarget.style.transform = "none"; }}>
