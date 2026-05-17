@@ -268,7 +268,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : "32px 48px", display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
+      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : 28, display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
 
         {/* ── MATERIALIEN ── */}
         {tab === "material" && <>
@@ -282,7 +282,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
           </div>
           {filteredMats.length === 0
             ? <Empty icon="📭" text="Noch keine Materialien" />
-            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
+            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
               {filteredMats.map(m => {
                 const mc = MAT_COLORS[m.typ] || col;
                 const hasLiked = m.likes?.includes(profile.uid);
