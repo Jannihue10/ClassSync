@@ -21,22 +21,22 @@ export const LIGHT = {
 };
 
 export const DARK = {
-  bg:        "#0f0f0f",
-  bgSub:     "#1a1a1a",
-  bgCard:    "#1a1a1a",
-  bgHover:   "#222222",
-  border:    "#2a2a2a",
-  borderSub: "#222222",
+  bg:        "#1c1c1e",
+  bgSub:     "#2c2c2e",
+  bgCard:    "#252527",
+  bgHover:   "#323234",
+  border:    "#3a3a3c",
+  borderSub: "#2c2c2e",
   text:      "#f0f0f0",
-  textSub:   "#aaaaaa",
-  textMuted: "#555555",
+  textSub:   "#adadad",
+  textMuted: "#6e6e73",
   accent:    "#f0f0f0",
-  accentFg:  "#0f0f0f",
+  accentFg:  "#1c1c1e",
   danger:    "#fc8181",
   success:   "#68d391",
   warning:   "#f6ad55",
-  shadow:    "0 1px 4px rgba(0,0,0,0.4)",
-  shadowMd:  "0 4px 16px rgba(0,0,0,0.5)",
+  shadow:    "0 1px 4px rgba(0,0,0,0.3)",
+  shadowMd:  "0 4px 16px rgba(0,0,0,0.4)",
 };
 
 export const FACH_COLORS = {
