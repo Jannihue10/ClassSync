@@ -3,6 +3,8 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
+// Füge hier deine eigenen Firebase-Keys ein
+// (Firebase Console → Projekteinstellungen → Deine Apps → Config kopieren)
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,

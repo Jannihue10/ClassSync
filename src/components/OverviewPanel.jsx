@@ -1,0 +1,73 @@
+import { useTheme } from "../context/ThemeContext";
+import { Btn, SectionTitle } from "./UI";
+import { FACH_COLORS } from "../styles/theme";
+
+export default function OverviewPanel({ klasse, kurse, onClose }) {
+  const { t } = useTheme();
+
+  const allHAs = kurse.flatMap(k =>
+    (k.hausaufgaben || []).filter(h => !h.done).map(h => ({ ...h, fach: k.name }))
+  );
+  const allPr = kurse.flatMap(k =>
+    (k.pruefungen || []).map(p => ({ ...p, fach: k.name }))
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 900, display: "flex" }}>
+      <div onClick={onClose} style={{ flex: 1, background: "rgba(0,0,0,0.3)" }} />
+      <div style={{ width: 340, background: t.bgCard, height: "100%", borderLeft: `1px solid ${t.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Übersicht</div>
+          <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
+        </div>
+
+        {klasse && (
+          <div style={{ padding: "16px 24px", borderBottom: `1px solid ${t.border}` }}>
+            <SectionTitle>Deine Klasse</SectionTitle>
+            <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{klasse.name}</div>
+            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4, fontFamily: "monospace", letterSpacing: 2 }}>Code: {klasse.code}</div>
+          </div>
+        )}
+
+        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${t.border}` }}>
+          <SectionTitle>Offene Hausaufgaben ({allHAs.length})</SectionTitle>
+          {allHAs.length === 0
+            ? <div style={{ fontSize: 13, color: t.textMuted }}>Alle erledigt ✅</div>
+            : allHAs.map((h, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${t.borderSub}` }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: FACH_COLORS[h.fach] || t.accent, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: t.text }}>{h.text}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{h.fach}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: h.faellig === "Heute" ? t.danger + "20" : t.warning + "20", color: h.faellig === "Heute" ? t.danger : t.warning }}>
+                  {h.faellig}
+                </span>
+              </div>
+            ))
+          }
+        </div>
+
+        <div style={{ padding: "16px 24px" }}>
+          <SectionTitle>Prüfungen</SectionTitle>
+          {allPr.length === 0
+            ? <div style={{ fontSize: 13, color: t.textMuted }}>Keine eingetragen</div>
+            : allPr.map((p, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${t.borderSub}` }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: FACH_COLORS[p.fach] || t.accent, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage}</span>
+                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.75)" }}>d</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{p.titel}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{p.fach} · {p.datum}</div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}

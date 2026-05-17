@@ -1,130 +1,322 @@
-import { useState } from "react";
-import { COLORS, ICONS, TYPEN, TYP_COLORS } from "../data/mockData";
-import MatCard from "../components/MatCard";
-import MaterialViewer from "../components/MaterialViewer";
-import RequestModal from "../components/RequestModal";
+import { useState, useEffect, useRef } from "react";
+import { db, storage } from "../firebase";
+import {
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc,
+  doc, serverTimestamp, arrayUnion, arrayRemove, query, orderBy,
+} from "firebase/firestore";
+import { ref as sRef, getDownloadURL } from "firebase/storage";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { Btn, Empty, Pill, SectionTitle, Modal, ModalHeader, Input } from "../components/UI";
+import UploadModal from "../components/UploadModal";
+import { FACH_COLORS, FACH_ICONS, MAT_TYPEN, MAT_COLORS } from "../styles/theme";
 
-export default function KursView({ fach, kd, meineKurse, onBack, onUpload }) {
-  const [tab, setTab] = useState("material");
-  const [filter, setFilter] = useState("Alle");
-  const [mats, setMats] = useState(kd.materialien[fach] || []);
-  const [has, setHas] = useState(kd.hausaufgaben[fach] || []);
-  const [viewer, setViewer] = useState(null);
-  const [requesting, setRequesting] = useState(false);
-  const [requests, setRequests] = useState([]);
-  const [msgs, setMsgs] = useState([
-    { id: 1, autor: "Lisa M.", text: "Hat jemand die Lösung für Aufgabe 5?", zeit: "14:32" },
-    { id: 2, autor: "Max B.", text: "Ich lade gleich meine Mitschrift hoch!", zeit: "14:35" },
-    { id: 3, autor: "Anna K.", text: "Danke Lisa!! 🙏", zeit: "14:42" },
-  ]);
-  const [msgIn, setMsgIn] = useState("");
+// ── Material Viewer ────────────────────────────────────────────────────────────
+function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
+  const { profile } = useAuth();
+  const { t } = useTheme();
+  const col = MAT_COLORS[mat.typ] || t.accent;
+  const hasLiked = mat.likes?.includes(profile.uid);
 
-  const col = COLORS[fach] || "#6366f1";
-  const pr = kd.pruefungen.filter(p => p.fach === fach);
-  const filtered = filter === "Alle" ? mats : mats.filter(m => m.typ === filter);
+  const toggleLike = async () => {
+    const ref = doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id);
+    await updateDoc(ref, {
+      likes: hasLiked ? arrayRemove(profile.uid) : arrayUnion(profile.uid),
+    });
+  };
 
-  const handleLike = id => setMats(p => p.map(m => m.id === id ? { ...m, likes: m.likes + 1 } : m));
-  const sendMsg = () => {
+  const deleteMat = async () => {
+    if (!window.confirm("Material wirklich löschen?")) return;
+    await deleteDoc(doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id));
+    onClose();
+  };
+
+  return (
+    <Modal onClose={onClose} width={680}>
+      <ModalHeader title={mat.titel} onClose={onClose} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Pill label={mat.typ} color={col} />
+          <span style={{ fontSize: 12, color: t.textMuted }}>{mat.autor} · {mat.dateiTyp}</span>
+        </div>
+        {mat.beschreibung && <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.6 }}>{mat.beschreibung}</div>}
+
+        {/* Preview */}
+        <div style={{ background: t.bgSub, borderRadius: 12, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${t.border}`, overflow: "hidden" }}>
+          {mat.dateiUrl ? (
+            mat.dateiTyp === "PDF"
+              ? <iframe src={mat.dateiUrl} style={{ width: "100%", height: 400, border: "none" }} title={mat.titel} />
+              : <img src={mat.dateiUrl} alt={mat.titel} style={{ maxWidth: "100%", maxHeight: 400, objectFit: "contain" }} />
+          ) : (
+            <div style={{ textAlign: "center", color: t.textMuted, padding: 32 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>📝</div>
+              <div style={{ fontSize: 14 }}>Nur Textbeschreibung – keine Datei angehängt</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Btn onClick={toggleLike} variant={hasLiked ? "success" : "ghost"} style={{ fontSize: 13 }}>
+            ⭐ {mat.likes?.length || 0} {hasLiked ? "Danke gegeben" : "Danke sagen"}
+          </Btn>
+          {mat.dateiUrl && (
+            <a href={mat.dateiUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+              <Btn variant="ghost" style={{ fontSize: 13 }}>⬇ Herunterladen</Btn>
+            </a>
+          )}
+          {(isAdmin || mat.autorId === profile.uid) && (
+            <Btn onClick={deleteMat} variant="danger" style={{ fontSize: 13, marginLeft: "auto" }}>🗑 Löschen</Btn>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── HA Modal ──────────────────────────────────────────────────────────────────
+function AddHAModal({ klasseId, kursId, onClose }) {
+  const { profile } = useAuth();
+  const { t } = useTheme();
+  const [text, setText]       = useState("");
+  const [faellig, setFaellig] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!text.trim()) return;
+    setLoading(true);
+    await addDoc(collection(db, "klassen", klasseId, "kurse", kursId, "hausaufgaben"), {
+      text: text.trim(), faellig, done: false,
+      autor: profile.nickname, createdAt: serverTimestamp(),
+    });
+    setLoading(false); onClose();
+  };
+
+  return (
+    <Modal onClose={onClose} width={420}>
+      <ModalHeader title="Hausaufgabe eintragen" onClose={onClose} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Input label="Aufgabe" value={text} onChange={e => setText(e.target.value)} placeholder="z. B. S. 87 Aufgaben 3–7" />
+        <Input label="Fällig am" type="date" value={faellig} onChange={e => setFaellig(e.target.value)} />
+        <Btn onClick={submit} disabled={loading || !text.trim()} full>Eintragen →</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Prüfung Modal ─────────────────────────────────────────────────────────────
+function AddPruefungModal({ klasseId, kursId, onClose }) {
+  const { profile } = useAuth();
+  const { t } = useTheme();
+  const [titel, setTitel]   = useState("");
+  const [datum, setDatum]   = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!titel.trim() || !datum) return;
+    setLoading(true);
+    const tage = Math.ceil((new Date(datum) - new Date()) / (1000 * 60 * 60 * 24));
+    await addDoc(collection(db, "klassen", klasseId, "kurse", kursId, "pruefungen"), {
+      titel: titel.trim(), datum, tage,
+      autor: profile.nickname, createdAt: serverTimestamp(),
+    });
+    setLoading(false); onClose();
+  };
+
+  return (
+    <Modal onClose={onClose} width={420}>
+      <ModalHeader title="Prüfung eintragen" onClose={onClose} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Input label="Titel" value={titel} onChange={e => setTitel(e.target.value)} placeholder="z. B. Klausur Analysis" />
+        <Input label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} />
+        <Btn onClick={submit} disabled={loading || !titel.trim() || !datum} full>Eintragen →</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Main KursView ─────────────────────────────────────────────────────────────
+export default function KursView({ kurs, klasseId, onBack }) {
+  const { profile, updateProfile } = useAuth();
+  const { t } = useTheme();
+
+  const [tab, setTab]           = useState("material");
+  const [filter, setFilter]     = useState("Alle");
+  const [materialien, setMats]  = useState([]);
+  const [hausaufgaben, setHAs]  = useState([]);
+  const [pruefungen, setPrs]    = useState([]);
+  const [chatMsgs, setChat]     = useState([]);
+  const [viewer, setViewer]     = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [addingHA, setAddingHA]   = useState(false);
+  const [addingPr, setAddingPr]   = useState(false);
+  const [msgIn, setMsgIn]         = useState("");
+  const chatRef = useRef(null);
+
+  const col       = FACH_COLORS[kurs.name] || t.accent;
+  const isMember  = profile?.kurseIds?.includes(kurs.id);
+  const isKlasseAdmin = profile?.rolle === "admin";
+  const isKursAdmin   = kurs.adminId === profile?.uid;
+  const canEdit       = isKlasseAdmin || isKursAdmin;
+
+  // Realtime listeners
+  useEffect(() => {
+    const base = `klassen/${klasseId}/kurse/${kurs.id}`;
+    const u1 = onSnapshot(query(collection(db, base, "materialien"), orderBy("createdAt", "desc")), s => setMats(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const u2 = onSnapshot(collection(db, base, "hausaufgaben"), s => setHAs(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const u3 = onSnapshot(collection(db, base, "pruefungen"), s => setPrs(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const u4 = onSnapshot(query(collection(db, base, "chat"), orderBy("createdAt", "asc")), s => {
+      setChat(s.docs.map(d => ({ id: d.id, ...d.data() })));
+      setTimeout(() => chatRef.current?.scrollTo(0, chatRef.current.scrollHeight), 50);
+    });
+    return () => { u1(); u2(); u3(); u4(); };
+  }, [kurs.id, klasseId]);
+
+  const joinKurs = async () => {
+    await updateDoc(doc(db, "users", profile.uid), { kurseIds: arrayUnion(kurs.id) });
+    await updateProfile({ kurseIds: [...(profile.kurseIds || []), kurs.id] });
+  };
+
+  const leaveKurs = async () => {
+    if (!window.confirm("Kurs wirklich verlassen?")) return;
+    await updateDoc(doc(db, "users", profile.uid), { kurseIds: arrayRemove(kurs.id) });
+    await updateProfile({ kurseIds: (profile.kurseIds || []).filter(id => id !== kurs.id) });
+    onBack();
+  };
+
+  const toggleHA = async (ha) => {
+    await updateDoc(doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id), { done: !ha.done });
+  };
+
+  const sendMsg = async () => {
     if (!msgIn.trim()) return;
-    setMsgs(p => [...p, { id: p.length + 1, autor: "Du", text: msgIn, zeit: "Jetzt", eigene: true }]);
+    await addDoc(collection(db, "klassen", klasseId, "kurse", kurs.id, "chat"), {
+      text: msgIn.trim(), autor: profile.nickname,
+      autorId: profile.uid, createdAt: serverTimestamp(),
+    });
     setMsgIn("");
   };
 
+  const filteredMats = filter === "Alle" ? materialien : materialien.filter(m => m.typ === filter);
+
   const TABS = [
-    { id: "material", label: "📁 Materialien", count: mats.length },
-    { id: "hausaufgaben", label: "📋 Hausaufgaben", count: has.filter(h => !h.done).length || null },
-    { id: "chat", label: "💬 Chat" },
-    { id: "pruefungen", label: "📝 Prüfungen", count: pr.length || null },
+    { id: "material",     label: "📁 Materialien",   count: materialien.length },
+    { id: "hausaufgaben", label: "📋 Hausaufgaben",   count: hausaufgaben.filter(h => !h.done).length || null },
+    { id: "chat",         label: "💬 Chat",           count: null },
+    { id: "pruefungen",   label: "📝 Prüfungen",      count: pruefungen.length || null },
   ];
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
-      {viewer && (
-        <MaterialViewer
-          mat={viewer} onClose={() => setViewer(null)}
-          onLike={id => { handleLike(id); setViewer(v => ({ ...v, likes: v.likes + 1 })); }}
-        />
-      )}
-      {requesting && (
-        <RequestModal
-          fach={fach} onClose={() => setRequesting(false)}
-          onSend={t => setRequests(p => [...p, { id: p.length + 1, text: t }])}
-        />
-      )}
+      {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewer(null)} isAdmin={canEdit} />}
+      {uploading  && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
+      {addingHA   && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
+      {addingPr   && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
 
       {/* Header */}
-      <div style={{ background: "#1a1d2e", padding: "20px 28px", borderBottom: "1px solid #2d3148", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: "#2d3148", border: "none", borderRadius: 10, padding: "8px 14px", color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>←</button>
-        <div style={{ width: 46, height: 46, borderRadius: 14, background: col + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{ICONS[fach]}</div>
-        <div>
-          <div style={{ fontFamily: "Sora,sans-serif", fontSize: 22, fontWeight: 700, color: "white" }}>{fach}</div>
-          <div style={{ fontSize: 12, color: "#64748b" }}>{meineKurse.find(k => k.name === fach)?.lehrer} · {mats.length} Materialien</div>
+      <div style={{ background: t.bgCard, padding: "16px 28px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+        <Btn variant="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 13 }}>←</Btn>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: col + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+          {FACH_ICONS[kurs.name] || "📚"}
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-          <button onClick={() => setRequesting(true)} style={{ background: "#2d3148", color: "#94a3b8", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            📣 Anfragen
-          </button>
-          <button onClick={() => onUpload(fach)} style={{ background: col, color: "white", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            + Hochladen
-          </button>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{kurs.name}</div>
+          <div style={{ fontSize: 12, color: t.textMuted }}>
+            {kurs.lehrer && `${kurs.lehrer} · `}{kurs.raum && `R. ${kurs.raum} · `}{materialien.length} Materialien
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {isMember ? (
+            <>
+              <Btn onClick={() => setUploading(true)} style={{ fontSize: 13, padding: "7px 14px" }}>+ Hochladen</Btn>
+              <Btn onClick={leaveKurs} variant="ghost" style={{ fontSize: 13, padding: "7px 14px" }}>Verlassen</Btn>
+            </>
+          ) : (
+            <Btn onClick={joinKurs} variant="success" style={{ fontSize: 13, padding: "7px 14px" }}>+ Beitreten</Btn>
+          )}
         </div>
       </div>
 
+      {/* Not a member warning */}
+      {!isMember && (
+        <div style={{ background: t.warning + "18", borderBottom: `1px solid ${t.warning}33`, padding: "10px 28px", fontSize: 13, color: t.warning, fontWeight: 500 }}>
+          Du bist diesem Kurs noch nicht beigetreten. Tritt bei um Materialien hochzuladen und am Chat teilzunehmen.
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{ background: "#1a1d2e", borderBottom: "1px solid #2d3148", display: "flex", padding: "0 28px", flexShrink: 0 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding: "13px 18px", border: "none", borderBottom: `2px solid ${tab === t.id ? col : "transparent"}`, background: "transparent", fontSize: 13, fontWeight: tab === t.id ? 600 : 400, color: tab === t.id ? col : "#64748b", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "color .2s" }}>
-            {t.label}
-            {t.count > 0 && (
-              <span style={{ background: tab === t.id ? col + "33" : "#2d3148", color: tab === t.id ? col : "#64748b", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{t.count}</span>
-            )}
+      <div style={{ background: t.bgCard, borderBottom: `1px solid ${t.border}`, display: "flex", padding: "0 28px", flexShrink: 0 }}>
+        {TABS.map(tb => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
+            style={{ padding: "12px 16px", border: "none", borderBottom: `2px solid ${tab === tb.id ? col : "transparent"}`, background: "transparent", fontSize: 13, fontWeight: tab === tb.id ? 600 : 400, color: tab === tb.id ? col : t.textMuted, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "color .15s" }}>
+            {tb.label}
+            {tb.count > 0 && <span style={{ background: tab === tb.id ? col + "25" : t.bgSub, color: tab === tb.id ? col : t.textMuted, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 20 }}>{tb.count}</span>}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: tab === "chat" ? 0 : 28 }}>
+      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : 28, display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
 
+        {/* ── MATERIALIEN ── */}
         {tab === "material" && <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-            {TYPEN.map(t => (
-              <button key={t} onClick={() => setFilter(t)}
-                style={{ padding: "7px 16px", borderRadius: 20, border: "1.5px solid", borderColor: filter === t ? (TYP_COLORS[t] || col) : "#2d3148", background: filter === t ? (TYP_COLORS[t] || col) + "22" : "transparent", color: filter === t ? (TYP_COLORS[t] || col) : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .2s" }}>
-                {t}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            {["Alle", ...MAT_TYPEN].map(tp => (
+              <button key={tp} onClick={() => setFilter(tp)}
+                style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${filter === tp ? (MAT_COLORS[tp] || col) : t.border}`, background: filter === tp ? (MAT_COLORS[tp] || col) + "18" : "transparent", color: filter === tp ? (MAT_COLORS[tp] || col) : t.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>
+                {tp}
               </button>
             ))}
           </div>
-          {requests.length > 0 && (
-            <div style={{ background: "#4f46e522", borderRadius: 14, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10, border: "1px solid #4f46e544" }}>
-              <span style={{ fontSize: 18 }}>📣</span>
-              <div style={{ flex: 1, fontSize: 13, color: "#a5b4fc" }}>Offene Anfragen: {requests.map(r => `"${r.text}"`).join(" · ")}</div>
-            </div>
-          )}
-          {filtered.length === 0
-            ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#4a5177", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}><span style={{ fontSize: 40 }}>📭</span>Noch keine Materialien in dieser Kategorie</div>
-            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-              {filtered.map(m => <MatCard key={m.id} m={m} onOpen={setViewer} onLike={handleLike} />)}
+          {filteredMats.length === 0
+            ? <Empty icon="📭" text="Noch keine Materialien" />
+            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+              {filteredMats.map(m => {
+                const mc = MAT_COLORS[m.typ] || col;
+                const hasLiked = m.likes?.includes(profile.uid);
+                return (
+                  <div key={m.id} onClick={() => setViewer(m)}
+                    style={{ background: t.bgCard, borderRadius: 14, padding: 18, cursor: "pointer", border: `1px solid ${t.border}`, transition: "all .15s", display: "flex", flexDirection: "column", gap: 12 }}
+                    onMouseOver={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                    onMouseOut={e => { e.currentTarget.style.background = t.bgCard; e.currentTarget.style.transform = "none"; }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: mc + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                        {m.dateiTyp === "PDF" ? "📄" : m.dateiTyp === "Bild" ? "🖼" : "📝"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.titel}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{m.autor}</div>
+                      </div>
+                    </div>
+                    {m.beschreibung && <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{m.beschreibung}</div>}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ background: mc + "18", color: mc, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>{m.typ}</span>
+                      <span style={{ fontSize: 12, color: hasLiked ? t.success : t.textMuted, fontWeight: 600 }}>⭐ {m.likes?.length || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           }
         </>}
 
+        {/* ── HAUSAUFGABEN ── */}
         {tab === "hausaufgaben" && (
           <div style={{ maxWidth: 580, display: "flex", flexDirection: "column", gap: 10 }}>
-            {has.length === 0
-              ? <div style={{ textAlign: "center", padding: 60, color: "#4a5177", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}><span style={{ fontSize: 40 }}>✅</span>Keine Hausaufgaben!</div>
-              : has.map(h => (
-                <div key={h.id} style={{ background: "#1a1d2e", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, border: "1px solid #2d3148" }}>
-                  <div onClick={() => setHas(p => p.map(x => x.id === h.id ? { ...x, done: !x.done } : x))}
-                    style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${h.done ? "#10b981" : "#3d4166"}`, background: h.done ? "#10b981" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .2s" }}>
-                    {h.done && <span style={{ color: "white", fontSize: 13, fontWeight: 700 }}>✓</span>}
+            {isMember && <div style={{ marginBottom: 8 }}><Btn onClick={() => setAddingHA(true)} style={{ fontSize: 13 }}>+ HA eintragen</Btn></div>}
+            {hausaufgaben.length === 0
+              ? <Empty icon="✅" text="Keine Hausaufgaben!" />
+              : hausaufgaben.map(h => (
+                <div key={h.id} style={{ background: t.bgCard, borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${t.border}` }}>
+                  <div onClick={() => isMember && toggleHA(h)}
+                    style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${h.done ? t.success : t.border}`, background: h.done ? t.success : "transparent", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
+                    {h.done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: h.done ? "#4a5177" : "white", textDecoration: h.done ? "line-through" : "none" }}>{h.text}</div>
-                    <div style={{ fontSize: 11, color: "#4a5177", marginTop: 3 }}>Fällig: {h.faellig}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: h.done ? t.textMuted : t.text, textDecoration: h.done ? "line-through" : "none" }}>{h.text}</div>
+                    {h.faellig && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Fällig: {h.faellig}</div>}
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: h.done ? "#10b98122" : h.faellig === "Heute" ? "#ef444422" : "#f59e0b22", color: h.done ? "#10b981" : h.faellig === "Heute" ? "#ef4444" : "#f59e0b" }}>
-                    {h.done ? "Erledigt" : h.faellig === "Heute" ? "Heute!" : h.faellig}
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, background: h.done ? t.success + "20" : t.warning + "20", color: h.done ? t.success : t.warning }}>
+                    {h.done ? "Erledigt" : h.faellig || "—"}
                   </span>
                 </div>
               ))
@@ -132,41 +324,56 @@ export default function KursView({ fach, kd, meineKurse, onBack, onUpload }) {
           </div>
         )}
 
+        {/* ── CHAT ── */}
         {tab === "chat" && (
-          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
-              {msgs.map(m => (
-                <div key={m.id} style={{ display: "flex", flexDirection: "column", gap: 4, alignSelf: m.eigene ? "flex-end" : "flex-start", maxWidth: "55%" }}>
-                  {!m.eigene && <div style={{ fontSize: 11, color: "#64748b", paddingLeft: 4 }}>{m.autor}</div>}
-                  <div style={{ background: m.eigene ? col : "#2d3148", color: "white", borderRadius: m.eigene ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 16px", fontSize: 14, lineHeight: 1.4 }}>{m.text}</div>
-                  <div style={{ fontSize: 10, color: "#4a5177", paddingLeft: 4 }}>{m.zeit}</div>
-                </div>
-              ))}
+          <>
+            <div ref={chatRef} style={{ flex: 1, overflowY: "auto", padding: "20px 28px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {chatMsgs.length === 0 && <Empty icon="💬" text="Noch keine Nachrichten" />}
+              {chatMsgs.map(m => {
+                const own = m.autorId === profile.uid;
+                return (
+                  <div key={m.id} style={{ display: "flex", flexDirection: "column", gap: 3, alignSelf: own ? "flex-end" : "flex-start", maxWidth: "60%" }}>
+                    {!own && <div style={{ fontSize: 11, color: t.textMuted, paddingLeft: 4 }}>{m.autor}</div>}
+                    <div style={{ background: own ? col : t.bgSub, color: own ? "#fff" : t.text, borderRadius: own ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "9px 14px", fontSize: 14, lineHeight: 1.4, border: own ? "none" : `1px solid ${t.border}` }}>
+                      {m.text}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div style={{ padding: "14px 28px", borderTop: "1px solid #2d3148", display: "flex", gap: 10, background: "#1a1d2e" }}>
-              <input value={msgIn} onChange={e => setMsgIn(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMsg()}
-                placeholder="Nachricht…"
-                style={{ flex: 1, background: "#12151f", border: "1px solid #2d3148", borderRadius: 24, padding: "10px 18px", color: "white", fontSize: 14, outline: "none" }} />
-              <button onClick={sendMsg} style={{ width: 42, height: 42, borderRadius: "50%", background: col, border: "none", color: "white", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>↑</button>
+            <div style={{ padding: "12px 28px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 10, background: t.bgCard, flexShrink: 0 }}>
+              <input
+                value={msgIn} onChange={e => setMsgIn(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), isMember && sendMsg())}
+                placeholder={isMember ? "Nachricht…" : "Kurs beitreten um zu schreiben"}
+                disabled={!isMember}
+                style={{ flex: 1, background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 24, padding: "9px 16px", color: t.text, fontSize: 14, outline: "none" }}
+              />
+              <button onClick={sendMsg} disabled={!isMember || !msgIn.trim()}
+                style={{ width: 40, height: 40, borderRadius: "50%", background: isMember && msgIn.trim() ? col : t.bgSub, border: "none", color: isMember && msgIn.trim() ? "#fff" : t.textMuted, fontSize: 17, cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
+                ↑
+              </button>
             </div>
-          </div>
+          </>
         )}
 
+        {/* ── PRÜFUNGEN ── */}
         {tab === "pruefungen" && (
-          <div style={{ maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
-            {pr.length === 0
-              ? <div style={{ textAlign: "center", padding: 60, color: "#4a5177", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}><span style={{ fontSize: 40 }}>🎉</span>Keine Prüfungen eingetragen</div>
-              : pr.map(p => (
-                <div key={p.id} style={{ background: "#1a1d2e", borderRadius: 16, padding: "20px 24px", display: "flex", alignItems: "center", gap: 18, border: "1px solid #2d3148", borderLeft: `4px solid ${col}` }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 14, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: "white", lineHeight: 1 }}>{p.tage}</span>
-                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.7)" }}>Tage</span>
+          <div style={{ maxWidth: 540, display: "flex", flexDirection: "column", gap: 10 }}>
+            {isMember && <div style={{ marginBottom: 8 }}><Btn onClick={() => setAddingPr(true)} style={{ fontSize: 13 }}>+ Prüfung eintragen</Btn></div>}
+            {pruefungen.length === 0
+              ? <Empty icon="🎉" text="Keine Prüfungen eingetragen" />
+              : pruefungen.map(p => (
+                <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${col}` }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage}</span>
+                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)" }}>Tage</span>
                   </div>
                   <div>
-                    <div style={{ fontFamily: "Sora,sans-serif", fontSize: 16, fontWeight: 700, color: "white" }}>{p.titel}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>📅 {p.datum}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{p.titel}</div>
+                    <div style={{ fontSize: 12, color: t.textMuted, marginTop: 3 }}>📅 {p.datum}</div>
                   </div>
-                  <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: p.tage <= 7 ? "#ef4444" : p.tage <= 14 ? "#f59e0b" : "#10b981" }} />
+                  <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: p.tage <= 7 ? t.danger : p.tage <= 14 ? t.warning : t.success }} />
                 </div>
               ))
             }
