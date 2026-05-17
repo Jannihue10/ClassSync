@@ -1,16 +1,74 @@
-# React + Vite
+# 📚 ClassSync
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Unterrichtsmaterial teilen – einfach, schnell, für deine Klasse.
 
-Currently, two official plugins are available:
+ClassSync ist eine Web-App die Schülern ermöglicht, Mitschriften, Hausaufgaben-Lösungen und Lernzettel mit ihrer Klasse zu teilen. Organisiert nach Stundenplan, immer aktuell, ohne Werbung.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Was kann ClassSync?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**📁 Material teilen**
+Lade PDFs und Fotos hoch – direkt in der App lesbar. Typen wie Mitschrift, HA-Lösung, Aufgabenblatt und Lernzettel helfen beim schnellen Finden.
 
-## Expanding the ESLint configuration
+**🗓 Stundenplan als Startpunkt**
+Klicke auf eine Stunde und komm direkt zu den Materialien des Fachs. Du siehst nur die Kurse in denen du bist.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**📋 Hausaufgaben & Prüfungen**
+Trag Hausaufgaben ein, hak sie ab wenn erledigt. Prüfungen zeigen einen automatischen Countdown in Tagen.
+
+**💬 Echtzeit-Chat**
+Jeder Kurs hat seinen eigenen Chat – Nachrichten erscheinen sofort, ohne neu laden.
+
+**⭐ Danksagungen**
+Like nützliche Materialien um deinen Mitschülern Feedback zu geben.
+
+**🔒 Nur deine Klasse**
+Inhalte sind nur für Mitglieder der eigenen Klasse sichtbar. Kein fremder kann auf eure Materialien zugreifen.
+
+---
+
+## Wie funktioniert es?
+
+1. **Account erstellen** – mit Email, Passwort und einem Nickname
+2. **Klasse beitreten** – mit dem Zugangscode deines Klassensprechers, oder selbst eine Klasse erstellen
+3. **Kurse wählen** – tritt den Fächern bei die du belegst
+4. **Loslegen** – Material hochladen, Hausaufgaben eintragen, im Chat schreiben
+
+---
+
+## Rollen
+
+| Rolle | Rechte |
+|---|---|
+| Schüler | Kurse beitreten, Material hochladen, HA & Prüfungen eintragen |
+| Kurs-Admin | Eigenen Kurs bearbeiten und löschen |
+| Klassen-Admin | Alle Kurse verwalten, Klasse löschen |
+
+---
+
+## Tech Stack
+
+- **React** + **Vite**
+- **Firebase** – Authentication, Firestore, Storage
+- **Vercel** – Hosting
+
+---
+
+## Selbst hosten
+
+```bash
+git clone https://github.com/dein-username/classsync.git
+cd classsync
+npm install
+```
+
+Erstelle eine `.env.local` mit deinen Firebase-Keys und starte den Entwicklungsserver:
+
+```bash
+npm run dev
+```
+
+---
+
+Gebaut von einem Schüler, für Schüler.
