@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Btn, Input, SectionTitle, Divider } from "../components/UI";
+import { db } from "../firebase";
+import { doc, deleteDoc, collection, getDocs } from "firebase/firestore";
 import { FACH_COLORS, FACH_ICONS } from "../styles/theme";
 
 export default function Profile({ kurse, onClose, onKursClick }) {
@@ -86,6 +88,29 @@ export default function Profile({ kurse, onClose, onKursClick }) {
               {isDark ? "☀️ Light" : "🌙 Dark"}
             </button>
           </div>
+          <Divider />
+          {profile?.rolle === "admin" && (
+            <>
+              <Btn onClick={async () => {
+                if (!window.confirm("Klasse wirklich löschen? Alle Kurse und Materialien werden unwiderruflich gelöscht.")) return;
+                const klasseId = profile.klasseId;
+                // Delete all subcollections of each kurs
+                const kurseSnap = await getDocs(collection(db, "klassen", klasseId, "kurse"));
+                for (const kursDoc of kurseSnap.docs) {
+                  for (const sub of ["materialien", "hausaufgaben", "pruefungen", "chat"]) {
+                    const subSnap = await getDocs(collection(db, "klassen", klasseId, "kurse", kursDoc.id, sub));
+                    for (const d of subSnap.docs) await deleteDoc(d.ref);
+                  }
+                  await deleteDoc(kursDoc.ref);
+                }
+                await deleteDoc(doc(db, "klassen", klasseId));
+                await updateProfile({ klasseId: null, rolle: "schueler", kurseIds: [] });
+              }} variant="danger" style={{ alignSelf: "flex-start", fontSize: 13 }}>
+                🗑 Klasse löschen
+              </Btn>
+              <div style={{ fontSize: 12, color: t.textMuted }}>Nur du als Admin siehst diese Option.</div>
+            </>
+          )}
           <Divider />
           <Btn onClick={logout} variant="danger" style={{ alignSelf: "flex-start", fontSize: 13 }}>Abmelden</Btn>
         </div>
