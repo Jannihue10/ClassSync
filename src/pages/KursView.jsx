@@ -269,7 +269,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : "32px 48px", display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : "32px 48px", display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
 
         {/* ── MATERIALIEN ── */}
         {tab === "material" && <>
