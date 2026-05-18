@@ -1,27 +1,69 @@
+import { useEffect, useState } from "react";
+import { db } from "../firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Btn, SectionTitle } from "./UI";
 import { FACH_COLORS } from "../styles/theme";
 
 export default function OverviewPanel({ klasse, kurse, onClose }) {
   const { t } = useTheme();
+  const { profile } = useAuth();
 
-  const allHAs = kurse.flatMap(k =>
-    (k.hausaufgaben || []).filter(h => !h.done).map(h => ({ ...h, fach: k.name }))
-  );
-  const allPr = kurse.flatMap(k =>
-    (k.pruefungen || []).map(p => ({ ...p, fach: k.name }))
-  );
+  const [allHAs, setAllHAs] = useState([]);
+  const [allPrs, setAllPrs] = useState([]);
+
+  // Only load subcollections for kurse the user is a member of
+  const meineKurse = kurse.filter(k => profile?.kurseIds?.includes(k.id));
+
+  useEffect(() => {
+    if (!klasse || meineKurse.length === 0) return;
+
+    const unsubs = [];
+
+    meineKurse.forEach(k => {
+      // Hausaufgaben
+      const u1 = onSnapshot(
+        collection(db, "klassen", klasse.id, "kurse", k.id, "hausaufgaben"),
+        snap => {
+          const has = snap.docs.map(d => ({ id: d.id, ...d.data(), fach: k.name })).filter(h => !h.done);
+          setAllHAs(prev => {
+            const others = prev.filter(h => h.kursId !== k.id);
+            return [...others, ...has.map(h => ({ ...h, kursId: k.id }))];
+          });
+        }
+      );
+      // Prüfungen
+      const u2 = onSnapshot(
+        collection(db, "klassen", klasse.id, "kurse", k.id, "pruefungen"),
+        snap => {
+          const prs = snap.docs.map(d => ({ id: d.id, ...d.data(), fach: k.name }));
+          setAllPrs(prev => {
+            const others = prev.filter(p => p.kursId !== k.id);
+            return [...others, ...prs.map(p => ({ ...p, kursId: k.id }))];
+          });
+        }
+      );
+      unsubs.push(u1, u2);
+    });
+
+    return () => unsubs.forEach(u => u());
+  }, [klasse?.id, meineKurse.length]);
+
+  const sortedPrs = [...allPrs].sort((a, b) => (a.tage || 999) - (b.tage || 999));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 900, display: "flex" }}>
       <div onClick={onClose} style={{ flex: 1, background: "rgba(0,0,0,0.3)" }} />
       <div style={{ width: 340, background: t.bgCard, height: "100%", borderLeft: `1px solid ${t.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
 
+        {/* Header */}
         <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Übersicht</div>
           <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
         </div>
 
+        {/* Klasse info */}
         {klasse && (
           <div style={{ padding: "16px 24px", borderBottom: `1px solid ${t.border}` }}>
             <SectionTitle>Deine Klasse</SectionTitle>
@@ -30,6 +72,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
           </div>
         )}
 
+        {/* Hausaufgaben */}
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${t.border}` }}>
           <SectionTitle>Offene Hausaufgaben ({allHAs.length})</SectionTitle>
           {allHAs.length === 0
@@ -37,30 +80,33 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
             : allHAs.map((h, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${t.borderSub}` }}>
                 <div style={{ width: 8, height: 8, borderRadius: 2, background: FACH_COLORS[h.fach] || t.accent, flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: t.text }}>{h.text}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.text}</div>
                   <div style={{ fontSize: 11, color: t.textMuted }}>{h.fach}</div>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: h.faellig === "Heute" ? t.danger + "20" : t.warning + "20", color: h.faellig === "Heute" ? t.danger : t.warning }}>
-                  {h.faellig}
-                </span>
+                {h.faellig && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: t.warning + "20", color: t.warning, whiteSpace: "nowrap" }}>
+                    {h.faellig}
+                  </span>
+                )}
               </div>
             ))
           }
         </div>
 
+        {/* Prüfungen */}
         <div style={{ padding: "16px 24px" }}>
-          <SectionTitle>Prüfungen</SectionTitle>
-          {allPr.length === 0
+          <SectionTitle>Prüfungen ({sortedPrs.length})</SectionTitle>
+          {sortedPrs.length === 0
             ? <div style={{ fontSize: 13, color: t.textMuted }}>Keine eingetragen</div>
-            : allPr.map((p, i) => (
+            : sortedPrs.map((p, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${t.borderSub}` }}>
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: FACH_COLORS[p.fach] || t.accent, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage ?? "?"}</span>
                   <span style={{ fontSize: 7, color: "rgba(255,255,255,0.75)" }}>d</span>
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{p.titel}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.titel}</div>
                   <div style={{ fontSize: 11, color: t.textMuted }}>{p.fach} · {p.datum}</div>
                 </div>
               </div>
