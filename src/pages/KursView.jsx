@@ -207,7 +207,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
   ];
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
       {uploading  && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
       {addingHA   && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
@@ -269,7 +269,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : "32px 48px", display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
+      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : 28, display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
 
         {/* ── MATERIALIEN ── */}
         {tab === "material" && <>
