@@ -101,9 +101,8 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
             ? <div style={{ fontSize: 13, color: t.textMuted }}>Keine eingetragen</div>
             : sortedPrs.map((p, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${t.borderSub}` }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: FACH_COLORS[p.fach] || t.accent, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: FACH_COLORS[p.fach] || t.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage ?? "?"}</span>
-                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.75)" }}>d</span>
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.titel}</div>
