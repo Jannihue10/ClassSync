@@ -4,7 +4,7 @@ import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
   doc, serverTimestamp, arrayUnion, arrayRemove, query, orderBy,
 } from "firebase/firestore";
-import { ref as sRef, getDownloadURL } from "firebase/storage";
+import { ref as sRef, deleteObject } from "firebase/storage";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Btn, Empty, Pill, SectionTitle, Modal, ModalHeader, Input } from "../components/UI";
@@ -27,6 +27,14 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
 
   const deleteMat = async () => {
     if (!window.confirm("Material wirklich löschen?")) return;
+    // Datei aus Storage löschen falls vorhanden
+    if (mat.dateiUrl) {
+      try {
+        await deleteObject(sRef(storage, mat.dateiUrl));
+      } catch (e) {
+        console.warn("Storage-Datei konnte nicht gelöscht werden:", e);
+      }
+    }
     await deleteDoc(doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id));
     onClose();
   };
@@ -235,11 +243,17 @@ export default function KursView({ kurs, klasseId, onBack }) {
             <Btn onClick={joinKurs} variant="success" style={{ fontSize: 13, padding: "7px 14px" }}>+ Beitreten</Btn>
           )}
           {canEdit && (
-            <Btn onClick={async () => {
+            <Btn             onClick={async () => {
               if (!window.confirm(`Kurs "${kurs.name}" wirklich löschen? Alle Inhalte werden unwiderruflich gelöscht.`)) return;
               for (const sub of ["materialien", "hausaufgaben", "pruefungen", "chat"]) {
                 const snap = await getDocs(collection(db, "klassen", klasseId, "kurse", kurs.id, sub));
-                for (const d of snap.docs) await deleteDoc(d.ref);
+                for (const d of snap.docs) {
+                  // Storage-Dateien löschen
+                  if (sub === "materialien" && d.data().dateiUrl) {
+                    try { await deleteObject(sRef(storage, d.data().dateiUrl)); } catch (e) {}
+                  }
+                  await deleteDoc(d.ref);
+                }
               }
               await deleteDoc(doc(db, "klassen", klasseId, "kurse", kurs.id));
               onBack();
