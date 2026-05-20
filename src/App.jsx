@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext";
 import { useTheme } from "./context/ThemeContext";
 import { db } from "./firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { GLOBAL_CSS } from "./styles/theme";
 import { Spinner } from "./components/UI";
 
@@ -36,10 +36,14 @@ export default function App() {
 
     // Load klasse doc
     const unsubKlasse = onSnapshot(
-      collection(db, "klassen"),
+      doc(db, "klassen", profile.klasseId),
       snap => {
-        const kDoc = snap.docs.find(d => d.id === profile.klasseId);
-        if (kDoc) setKlasse({ id: kDoc.id, ...kDoc.data() });
+        if (snap.exists()) {
+          setKlasse({ id: snap.id, ...snap.data() });
+        } else {
+          // Klasse wurde gelöscht – Nutzer rauswerfen
+          updateProfile({ klasseId: null, rolle: "schueler", kurseIds: [] });
+        }
       }
     );
 
