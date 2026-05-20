@@ -41,7 +41,10 @@ export default function App() {
         if (snap.exists()) {
           setKlasse({ id: snap.id, ...snap.data() });
         } else {
-          // Klasse wurde gelöscht – Nutzer rauswerfen
+          // Klasse wurde gelöscht – lokal sofort zurücksetzen
+          setKlasse(null);
+          setKurse([]);
+          setActiveKurs(null);
           updateProfile({ klasseId: null, rolle: "schueler", kurseIds: [] });
         }
       }
@@ -67,8 +70,8 @@ export default function App() {
     ? <Login onSwitch={() => setAuthMode("register")} />
     : <Register onSwitch={() => setAuthMode("login")} />;
 
-  // Logged in but no class yet
-  if (!profile?.klasseId) return <Onboarding />;
+  // Logged in but no class yet – or class was deleted
+  if (!profile?.klasseId || (klasse === null && profile?.klasseId)) return <Onboarding />;
 
   // Profile page
   if (showProfile) return (
