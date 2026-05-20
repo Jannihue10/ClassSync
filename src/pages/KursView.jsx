@@ -28,9 +28,9 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
   const deleteMat = async () => {
     if (!window.confirm("Material wirklich löschen?")) return;
     // Datei aus Storage löschen falls vorhanden
-    if (mat.dateiUrl) {
+    if (mat.storagePath) {
       try {
-        await deleteObject(sRef(storage, mat.dateiUrl));
+        await deleteObject(sRef(storage, mat.storagePath));
       } catch (e) {
         console.warn("Storage-Datei konnte nicht gelöscht werden:", e);
       }
@@ -249,8 +249,8 @@ export default function KursView({ kurs, klasseId, onBack }) {
                 const snap = await getDocs(collection(db, "klassen", klasseId, "kurse", kurs.id, sub));
                 for (const d of snap.docs) {
                   // Storage-Dateien löschen
-                  if (sub === "materialien" && d.data().dateiUrl) {
-                    try { await deleteObject(sRef(storage, d.data().dateiUrl)); } catch (e) {}
+                  if (sub === "materialien" && d.data().storagePath) {
+                    try { await deleteObject(sRef(storage, d.data().storagePath)); } catch (e) {}
                   }
                   await deleteDoc(d.ref);
                 }

@@ -42,7 +42,8 @@ export default function UploadModal({ klasseId, kursId, kursName, kurse = [], on
 
       if (file) {
         setProgress("Datei wird hochgeladen…");
-        const storageRef = ref(storage, `klassen/${klasseId}/kurse/${targetKursId}/${Date.now()}_${file.name}`);
+        const storagePath = `klassen/${klasseId}/kurse/${targetKursId}/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, file);
         dateiUrl = await getDownloadURL(storageRef);
         dateiTyp = file.type.includes("pdf") ? "PDF" : "Bild";
@@ -52,7 +53,9 @@ export default function UploadModal({ klasseId, kursId, kursName, kurse = [], on
       await addDoc(collection(db, "klassen", klasseId, "kurse", targetKursId, "materialien"), {
         typ, titel: titel.trim(),
         beschreibung: beschr.trim(),
-        dateiUrl, dateiTyp,
+        dateiUrl,
+        storagePath: dateiUrl ? `klassen/${klasseId}/kurse/${targetKursId}` : null,
+        dateiTyp,
         autor:    profile.nickname,
         autorId:  profile.uid,
         likes:    [],

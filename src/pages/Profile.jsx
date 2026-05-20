@@ -33,8 +33,8 @@ export default function Profile({ kurse, onClose, onKursClick }) {
         const subSnap = await getDocs(collection(db, "klassen", klasseId, "kurse", kursDoc.id, sub));
         for (const d of subSnap.docs) {
           // Storage-Dateien löschen
-          if (sub === "materialien" && d.data().dateiUrl) {
-            try { await deleteObject(sRef(storage, d.data().dateiUrl)); } catch (e) {}
+          if (sub === "materialien" && d.data().storagePath) {
+            try { await deleteObject(sRef(storage, d.data().storagePath)); } catch (e) {}
           }
           await deleteDoc(d.ref);
         }
