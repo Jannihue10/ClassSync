@@ -71,4 +71,4 @@ npm run dev
 
 ---
 
-Gebaut von einem Schüler, für Schüler.
+Gebaut von Schülern, für Schüler.
