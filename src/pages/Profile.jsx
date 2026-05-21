@@ -83,6 +83,18 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
             ) : (
               <Btn variant="ghost" onClick={() => setEditNick(true)} style={{ alignSelf: "flex-start", fontSize: 13 }}>✏️ Nickname ändern</Btn>
             )}
+
+            {/* Klasse & Code */}
+            {klasse && (
+              <div style={{ background: t.bgSub, borderRadius: 12, padding: "14px 16px", border: `1px solid ${t.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Meine Klasse</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{klasse.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: t.textMuted }}>Zugangscode:</span>
+                  <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 700, color: t.text, letterSpacing: 3 }}>{klasse.code}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Settings card */}
