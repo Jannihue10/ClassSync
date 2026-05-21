@@ -7,8 +7,9 @@ import {
 import { ref as sRef, deleteObject } from "firebase/storage";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Btn, Empty, Pill, SectionTitle, Modal, ModalHeader, Input } from "../components/UI";
+import { Btn, Empty, Pill, Modal, ModalHeader, Input } from "../components/UI";
 import UploadModal from "../components/UploadModal";
+import EditKursModal from "../components/EditKursModal";
 import { FACH_COLORS, FACH_ICONS, MAT_TYPEN, MAT_COLORS } from "../styles/theme";
 
 // ── Material Viewer ────────────────────────────────────────────────────────────
@@ -19,21 +20,14 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
   const hasLiked = mat.likes?.includes(profile.uid);
 
   const toggleLike = async () => {
-    const ref = doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id);
-    await updateDoc(ref, {
-      likes: hasLiked ? arrayRemove(profile.uid) : arrayUnion(profile.uid),
-    });
+    const r = doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id);
+    await updateDoc(r, { likes: hasLiked ? arrayRemove(profile.uid) : arrayUnion(profile.uid) });
   };
 
   const deleteMat = async () => {
     if (!window.confirm("Material wirklich löschen?")) return;
-    // Datei aus Storage löschen falls vorhanden
     if (mat.storagePath) {
-      try {
-        await deleteObject(sRef(storage, mat.storagePath));
-      } catch (e) {
-        console.warn("Storage-Datei konnte nicht gelöscht werden:", e);
-      }
+      try { await deleteObject(sRef(storage, mat.storagePath)); } catch (e) {}
     }
     await deleteDoc(doc(db, "klassen", klasseId, "kurse", kursId, "materialien", mat.id));
     onClose();
@@ -48,8 +42,6 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
           <span style={{ fontSize: 12, color: t.textMuted }}>{mat.autor} · {mat.dateiTyp}</span>
         </div>
         {mat.beschreibung && <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.6 }}>{mat.beschreibung}</div>}
-
-        {/* Preview */}
         <div style={{ background: t.bgSub, borderRadius: 12, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${t.border}`, overflow: "hidden" }}>
           {mat.dateiUrl ? (
             mat.dateiTyp === "PDF"
@@ -62,7 +54,6 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
             </div>
           )}
         </div>
-
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn onClick={toggleLike} variant={hasLiked ? "success" : "ghost"} style={{ fontSize: 13 }}>
             ⭐ {mat.likes?.length || 0} {hasLiked ? "Danke gegeben" : "Danke sagen"}
@@ -84,7 +75,6 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
 // ── HA Modal ──────────────────────────────────────────────────────────────────
 function AddHAModal({ klasseId, kursId, onClose }) {
   const { profile } = useAuth();
-  const { t } = useTheme();
   const [text, setText]       = useState("");
   const [faellig, setFaellig] = useState("");
   const [loading, setLoading] = useState(false);
@@ -114,9 +104,8 @@ function AddHAModal({ klasseId, kursId, onClose }) {
 // ── Prüfung Modal ─────────────────────────────────────────────────────────────
 function AddPruefungModal({ klasseId, kursId, onClose }) {
   const { profile } = useAuth();
-  const { t } = useTheme();
-  const [titel, setTitel]   = useState("");
-  const [datum, setDatum]   = useState("");
+  const [titel, setTitel] = useState("");
+  const [datum, setDatum] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -156,18 +145,21 @@ export default function KursView({ kurs, klasseId, onBack }) {
   const [viewerId, setViewerId] = useState(null);
   const viewer = materialien.find(m => m.id === viewerId) || null;
   const [uploading, setUploading] = useState(false);
+  const [editing, setEditing]     = useState(false);
   const [addingHA, setAddingHA]   = useState(false);
   const [addingPr, setAddingPr]   = useState(false);
   const [msgIn, setMsgIn]         = useState("");
   const chatRef = useRef(null);
 
-  const col       = FACH_COLORS[kurs.name] || t.accent;
-  const isMember  = profile?.kurseIds?.includes(kurs.id);
+  // Use custom farbe/icon if set, otherwise fall back to defaults
+  const col      = kurs.farbe || FACH_COLORS[kurs.name] || t.accent;
+  const kursIcon = kurs.icon  || FACH_ICONS[kurs.name]  || "📚";
+
+  const isMember      = profile?.kurseIds?.includes(kurs.id);
   const isKlasseAdmin = profile?.rolle === "admin";
   const isKursAdmin   = kurs.adminId === profile?.uid;
   const canEdit       = isKlasseAdmin || isKursAdmin;
 
-  // Realtime listeners
   useEffect(() => {
     const base = `klassen/${klasseId}/kurse/${kurs.id}`;
     const u1 = onSnapshot(query(collection(db, base, "materialien"), orderBy("createdAt", "desc")), s => setMats(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -189,6 +181,21 @@ export default function KursView({ kurs, klasseId, onBack }) {
     if (!window.confirm("Kurs wirklich verlassen?")) return;
     await updateDoc(doc(db, "users", profile.uid), { kurseIds: arrayRemove(kurs.id) });
     await updateProfile({ kurseIds: (profile.kurseIds || []).filter(id => id !== kurs.id) });
+    onBack();
+  };
+
+  const deleteKurs = async () => {
+    if (!window.confirm(`Kurs "${kurs.name}" wirklich löschen?`)) return;
+    for (const sub of ["materialien", "hausaufgaben", "pruefungen", "chat"]) {
+      const snap = await getDocs(collection(db, "klassen", klasseId, "kurse", kurs.id, sub));
+      for (const d of snap.docs) {
+        if (sub === "materialien" && d.data().storagePath) {
+          try { await deleteObject(sRef(storage, d.data().storagePath)); } catch (e) {}
+        }
+        await deleteDoc(d.ref);
+      }
+    }
+    await deleteDoc(doc(db, "klassen", klasseId, "kurse", kurs.id));
     onBack();
   };
 
@@ -216,16 +223,17 @@ export default function KursView({ kurs, klasseId, onBack }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
-      {uploading  && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
-      {addingHA   && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
-      {addingPr   && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
+      {viewer   && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
+      {uploading && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
+      {editing   && <EditKursModal kurs={kurs} klasseId={klasseId} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
+      {addingHA  && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
+      {addingPr  && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
 
       {/* Header */}
       <div style={{ background: t.bgCard, padding: "16px 28px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
         <Btn variant="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 13 }}>←</Btn>
         <div style={{ width: 42, height: 42, borderRadius: 12, background: col + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
-          {FACH_ICONS[kurs.name] || "📚"}
+          {kursIcon}
         </div>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{kurs.name}</div>
@@ -242,29 +250,13 @@ export default function KursView({ kurs, klasseId, onBack }) {
           ) : (
             <Btn onClick={joinKurs} variant="success" style={{ fontSize: 13, padding: "7px 14px" }}>+ Beitreten</Btn>
           )}
-          {canEdit && (
-            <Btn             onClick={async () => {
-              if (!window.confirm(`Kurs "${kurs.name}" wirklich löschen? Alle Inhalte werden unwiderruflich gelöscht.`)) return;
-              for (const sub of ["materialien", "hausaufgaben", "pruefungen", "chat"]) {
-                const snap = await getDocs(collection(db, "klassen", klasseId, "kurse", kurs.id, sub));
-                for (const d of snap.docs) {
-                  // Storage-Dateien löschen
-                  if (sub === "materialien" && d.data().storagePath) {
-                    try { await deleteObject(sRef(storage, d.data().storagePath)); } catch (e) {}
-                  }
-                  await deleteDoc(d.ref);
-                }
-              }
-              await deleteDoc(doc(db, "klassen", klasseId, "kurse", kurs.id));
-              onBack();
-            }} variant="danger" style={{ fontSize: 13, padding: "7px 14px" }}>
-              🗑
-            </Btn>
-          )}
+          {canEdit && <>
+            <Btn onClick={() => setEditing(true)} variant="ghost" style={{ fontSize: 13, padding: "7px 14px" }}>✏️ Bearbeiten</Btn>
+            <Btn onClick={deleteKurs} variant="danger" style={{ fontSize: 13, padding: "7px 14px" }}>🗑</Btn>
+          </>}
         </div>
       </div>
 
-      {/* Not a member warning */}
       {!isMember && (
         <div style={{ background: t.warning + "18", borderBottom: `1px solid ${t.warning}33`, padding: "10px 28px", fontSize: 13, color: t.warning, fontWeight: 500 }}>
           Du bist diesem Kurs noch nicht beigetreten. Tritt bei um Materialien hochzuladen und am Chat teilzunehmen.
@@ -283,7 +275,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : 28, display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: tab === "chat" ? "hidden" : "auto", padding: tab === "chat" ? 0 : 28, display: tab === "chat" ? "flex" : "block", flexDirection: "column" }}>
 
         {/* ── MATERIALIEN ── */}
         {tab === "material" && <>
@@ -302,7 +294,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
                 const mc = MAT_COLORS[m.typ] || col;
                 const hasLiked = m.likes?.includes(profile.uid);
                 return (
-                  <div key={m.id}                     onClick={() => setViewerId(m.id)}
+                  <div key={m.id} onClick={() => setViewerId(m.id)}
                     style={{ background: t.bgCard, borderRadius: 14, padding: 18, cursor: "pointer", border: `1px solid ${t.border}`, transition: "all .15s", display: "flex", flexDirection: "column", gap: 12 }}
                     onMouseOver={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
                     onMouseOut={e => { e.currentTarget.style.background = t.bgCard; e.currentTarget.style.transform = "none"; }}>
@@ -370,13 +362,11 @@ export default function KursView({ kurs, klasseId, onBack }) {
               })}
             </div>
             <div style={{ padding: "12px 28px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 10, background: t.bgCard, flexShrink: 0 }}>
-              <input
-                value={msgIn} onChange={e => setMsgIn(e.target.value)}
+              <input value={msgIn} onChange={e => setMsgIn(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), isMember && sendMsg())}
                 placeholder={isMember ? "Nachricht…" : "Kurs beitreten um zu schreiben"}
                 disabled={!isMember}
-                style={{ flex: 1, background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 24, padding: "9px 16px", color: t.text, fontSize: 14, outline: "none" }}
-              />
+                style={{ flex: 1, background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 24, padding: "9px 16px", color: t.text, fontSize: 14, outline: "none" }} />
               <button onClick={sendMsg} disabled={!isMember || !msgIn.trim()}
                 style={{ width: 40, height: 40, borderRadius: "50%", background: isMember && msgIn.trim() ? col : t.bgSub, border: "none", color: isMember && msgIn.trim() ? "#fff" : t.textMuted, fontSize: 17, cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}>
                 ↑

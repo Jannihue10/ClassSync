@@ -1,25 +1,24 @@
 import { useState } from "react";
 import { db } from "../firebase";
-import { collection, addDoc, doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
+import { doc, updateDoc } from "firebase/firestore";
 import { useTheme } from "../context/ThemeContext";
 import { Modal, ModalHeader, Input, Btn } from "./UI";
 import { DAYS, FACH_COLORS, FACH_ICONS } from "../styles/theme";
 
 const KNOWN_FAECHER = Object.keys(FACH_ICONS);
+const COMMON_ICONS = ["📚","📐","📖","🌿","🇬🇧","⚗️","🏛️","⚡","🇫🇷","⚽","🎨","💻","🎵","🌍","📈","🗳️","✝️","📜","🇪🇸","🔬","🎭","📊"];
 
-export default function CreateKursModal({ klasseId, onClose, onCreated }) {
-  const { profile, updateProfile } = useAuth();
+export default function EditKursModal({ kurs, klasseId, onClose, onSaved }) {
   const { t } = useTheme();
 
-  const [name, setName]       = useState("");
-  const [lehrer, setLehrer]   = useState("");
-  const [raum, setRaum]       = useState("");
-  const [zeiten, setZeiten]   = useState([]);
+  const [name, setName]       = useState(kurs.name || "");
+  const [lehrer, setLehrer]   = useState(kurs.lehrer || "");
+  const [raum, setRaum]       = useState(kurs.raum || "");
+  const [zeiten, setZeiten]   = useState(kurs.zeiten || []);
   const [selDay, setSelDay]   = useState("Mo");
   const [zeit, setZeit]       = useState("08:00");
-  const [farbe, setFarbe]     = useState("#6366f1");
-  const [icon, setIcon]       = useState("📚");
+  const [farbe, setFarbe]     = useState(kurs.farbe || FACH_COLORS[kurs.name] || "#6366f1");
+  const [icon, setIcon]       = useState(kurs.icon || FACH_ICONS[kurs.name] || "📚");
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState("");
 
@@ -44,35 +43,22 @@ export default function CreateKursModal({ klasseId, onClose, onCreated }) {
     if (zeiten.length === 0) return setErr("Bitte mindestens einen Unterrichtstag hinzufügen.");
     setLoading(true); setErr("");
     try {
-      const kursRef = await addDoc(collection(db, "klassen", klasseId, "kurse"), {
-        name:      name.trim(),
-        lehrer:    lehrer.trim(),
-        raum:      raum.trim(),
-        zeiten,
-        farbe,
-        icon,
-        adminId:   profile.uid,
-        adminNick: profile.nickname,
-        createdAt: Date.now(),
+      await updateDoc(doc(db, "klassen", klasseId, "kurse", kurs.id), {
+        name: name.trim(), lehrer: lehrer.trim(),
+        raum: raum.trim(), zeiten, farbe, icon,
       });
-      await updateDoc(doc(db, "users", profile.uid), {
-        kurseIds: arrayUnion(kursRef.id),
-      });
-      await updateProfile({ kurseIds: [...(profile.kurseIds || []), kursRef.id] });
-      onCreated();
+      onSaved();
       onClose();
     } catch (e) {
-      setErr("Fehler beim Erstellen.");
+      setErr("Fehler beim Speichern.");
     } finally {
       setLoading(false);
     }
   };
 
-  const COMMON_ICONS = ["📚","📐","📖","🌿","🇬🇧","⚗️","🏛️","⚡","🇫🇷","⚽","🎨","💻","🎵","🌍","📈","🗳️","✝️","📜","🇪🇸","🔬","🎭","📊"];
-
   return (
     <Modal onClose={onClose} width={560}>
-      <ModalHeader title="Neuen Kurs erstellen" onClose={onClose} />
+      <ModalHeader title="Kurs bearbeiten" onClose={onClose} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
@@ -157,7 +143,7 @@ export default function CreateKursModal({ klasseId, onClose, onCreated }) {
 
         {err && <div style={{ fontSize: 13, color: t.danger }}>{err}</div>}
         <Btn onClick={submit} disabled={loading} full>
-          {loading ? "Wird erstellt…" : "Kurs erstellen →"}
+          {loading ? "Wird gespeichert…" : "Änderungen speichern →"}
         </Btn>
       </div>
     </Modal>
