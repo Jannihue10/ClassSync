@@ -55,7 +55,7 @@ export default function UploadModal({ klasseId, kursId, kursName, kurse = [], on
         typ, titel: titel.trim(),
         beschreibung: beschr.trim(),
         dateiUrl,
-        storagePath: dateiUrl ? `klassen/${klasseId}/kurse/${targetKursId}` : null,
+        storagePath: storagePath,
         dateiTyp,
         autor:    profile.nickname,
         autorId:  profile.uid,
