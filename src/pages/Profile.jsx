@@ -7,7 +7,7 @@ import { doc, deleteDoc, collection, getDocs } from "firebase/firestore";
 import { ref as sRef, deleteObject } from "firebase/storage";
 import { FACH_COLORS, FACH_ICONS } from "../styles/theme";
 
-export default function Profile({ kurse, onClose, onKursClick }) {
+export default function Profile({ kurse, klasse, onClose, onKursClick }) {
   const { profile, logout, updateProfile } = useAuth();
   const { t, isDark, toggle } = useTheme();
 

@@ -75,7 +75,7 @@ export default function App() {
 
   // Profile page
   if (showProfile) return (
-    <Profile kurse={kurse} onClose={() => setShowProfile(false)} onKursClick={k => { setActiveKurs(k); setShowProfile(false); }} />
+    <Profile kurse={kurse} klasse={klasse} onClose={() => setShowProfile(false)} onKursClick={k => { setActiveKurs(k); setShowProfile(false); }} />
   );
 
   // Main app
