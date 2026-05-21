@@ -39,10 +39,11 @@ export default function UploadModal({ klasseId, kursId, kursName, kurse = [], on
     try {
       let dateiUrl = null;
       let dateiTyp = "Notiz";
+      let storagePath = null;
 
       if (file) {
         setProgress("Datei wird hochgeladen…");
-        const storagePath = `klassen/${klasseId}/kurse/${targetKursId}/${Date.now()}_${file.name}`;
+        storagePath = `klassen/${klasseId}/kurse/${targetKursId}/${Date.now()}_${file.name}`;
         const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, file);
         dateiUrl = await getDownloadURL(storageRef);
@@ -54,7 +55,7 @@ export default function UploadModal({ klasseId, kursId, kursName, kurse = [], on
         typ, titel: titel.trim(),
         beschreibung: beschr.trim(),
         dateiUrl,
-        storagePath: storagePath,
+        storagePath: dateiUrl ? `klassen/${klasseId}/kurse/${targetKursId}` : null,
         dateiTyp,
         autor:    profile.nickname,
         autorId:  profile.uid,
