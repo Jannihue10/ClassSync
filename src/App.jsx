@@ -139,7 +139,8 @@ export default function App() {
       {showNotifications && (
         <NotificationPanel
           notifications={notifications}
-          onClose={() => { setShowNotifications(false); setNotifications([]); }}
+          onClose={() => setShowNotifications(false)}
+          onDismiss={() => { setNotifications([]); setShowNotifications(false); }}
         />
       )}
       {showOverview && (

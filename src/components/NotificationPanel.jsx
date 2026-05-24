@@ -13,7 +13,7 @@ function timeAgo(ts) {
   return `vor ${Math.floor(diff / 86400)} Tagen`;
 }
 
-export default function NotificationPanel({ notifications, onClose }) {
+export default function NotificationPanel({ notifications, onClose, onDismiss }) {
   const { t } = useTheme();
 
   // Group by kursName
@@ -59,7 +59,12 @@ export default function NotificationPanel({ notifications, onClose }) {
               </div>
             </div>
           </div>
-          <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
+          <div style={{ display: "flex", gap: 8 }}>
+            {notifications.length > 0 && (
+              <Btn variant="ghost" onClick={onDismiss} style={{ fontSize: 12, padding: "5px 10px" }}>✓ Alle gelesen</Btn>
+            )}
+            <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
+          </div>
         </div>
 
         {/* Content */}
