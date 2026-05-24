@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext";
 import { useTheme } from "./context/ThemeContext";
 import { db } from "./firebase";
-import { collection, onSnapshot, doc, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { GLOBAL_CSS } from "./styles/theme";
 import { Spinner } from "./components/UI";
 
@@ -62,53 +62,64 @@ export default function App() {
     return () => { unsubKlasse(); unsubKurse(); };
   }, [profile?.klasseId]);
 
-  // Load new materials since last visit
+  // Live-Listener: neue Materialien seit letztem Besuch + während der Session
   useEffect(() => {
     if (!profile?.klasseId || !profile?.uid || kurse.length === 0) return;
 
     const storageKey = `classsync_lastSeen_${profile.uid}`;
     const lastSeen = parseInt(localStorage.getItem(storageKey) || "0", 10);
-
-    // Save current time so next visit compares against now
     localStorage.setItem(storageKey, Date.now().toString());
 
     const meineKurse = kurse.filter(k => profile?.kurseIds?.includes(k.id));
     if (meineKurse.length === 0) return;
 
-    const fetchNew = async () => {
-      const results = [];
-      for (const kurs of meineKurse) {
-        const snap = await getDocs(
-          collection(db, "klassen", profile.klasseId, "kurse", kurs.id, "materialien")
-        );
-        snap.docs.forEach(d => {
-          const mat = d.data();
-          const createdMs = mat.createdAt?.toMillis
-            ? mat.createdAt.toMillis()
-            : mat.createdAt?.seconds
-              ? mat.createdAt.seconds * 1000
-              : 0;
-          if (createdMs > lastSeen) {
-            results.push({
-              id: d.id,
-              ...mat,
-              kursName: kurs.name,
-              farbe:    kurs.farbe,
-              icon:     kurs.icon,
-            });
-          }
-        });
-      }
-      // Sort newest first
-      results.sort((a, b) => {
-        const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds || 0) * 1000;
-        const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds || 0) * 1000;
-        return tb - ta;
-      });
-      setNotifications(results);
-    };
+    // Track which kurse have fired their initial snapshot
+    const initializedKurse = new Set();
+    const unsubs = [];
 
-    fetchNew();
+    meineKurse.forEach(kurs => {
+      const unsub = onSnapshot(
+        collection(db, "klassen", profile.klasseId, "kurse", kurs.id, "materialien"),
+        snap => {
+          const isInitial = !initializedKurse.has(kurs.id);
+
+          snap.docChanges().forEach(change => {
+            if (change.type !== "added") return;
+
+            const mat = change.doc.data();
+            const createdMs = mat.createdAt?.toMillis
+              ? mat.createdAt.toMillis()
+              : mat.createdAt?.seconds
+                ? mat.createdAt.seconds * 1000
+                : 0;
+
+            // Initial load: nur zeigen wenn neuer als lastSeen
+            if (isInitial && createdMs <= lastSeen) return;
+
+            setNotifications(prev => {
+              if (prev.some(n => n.id === change.doc.id)) return prev; // kein Duplikat
+              const newMat = {
+                id: change.doc.id,
+                ...mat,
+                kursName: kurs.name,
+                farbe:    kurs.farbe,
+                icon:     kurs.icon,
+              };
+              return [newMat, ...prev].sort((a, b) => {
+                const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds || 0) * 1000;
+                const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds || 0) * 1000;
+                return tb - ta;
+              });
+            });
+          });
+
+          initializedKurse.add(kurs.id);
+        }
+      );
+      unsubs.push(unsub);
+    });
+
+    return () => unsubs.forEach(u => u());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.klasseId, profile?.uid, kurse.length]);
 
