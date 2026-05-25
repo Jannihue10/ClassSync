@@ -194,6 +194,7 @@ export default function App() {
           <KursView
             kurs={activeKurs}
             klasseId={profile.klasseId}
+            klasseAdminIds={klasse?.adminIds || (klasse?.adminId ? [klasse.adminId] : [])}
             onBack={() => setActiveKurs(null)}
           />
         ) : (

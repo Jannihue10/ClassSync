@@ -132,7 +132,7 @@ function AddPruefungModal({ klasseId, kursId, onClose }) {
 }
 
 // ── Main KursView ─────────────────────────────────────────────────────────────
-export default function KursView({ kurs, klasseId, onBack }) {
+export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }) {
   const { profile, updateProfile } = useAuth();
   const { t } = useTheme();
 
@@ -156,7 +156,7 @@ export default function KursView({ kurs, klasseId, onBack }) {
   const kursIcon = kurs.icon  || FACH_ICONS[kurs.name]  || "📚";
 
   const isMember      = profile?.kurseIds?.includes(kurs.id);
-  const isKlasseAdmin = profile?.rolle === "admin";
+  const isKlasseAdmin = klasseAdminIds.includes(profile?.uid);
   const isKursAdmin   = kurs.adminId === profile?.uid;
   const canEdit       = isKlasseAdmin || isKursAdmin;
 

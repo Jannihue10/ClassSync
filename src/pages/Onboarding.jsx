@@ -38,7 +38,7 @@ export default function Onboarding() {
       const ref = await addDoc(collection(db, "klassen"), {
         name:      className.trim(),
         code:      newCode,
-        adminId:   profile.uid,
+        adminIds:  [profile.uid],
         createdAt: Date.now(),
       });
       await updateProfile({ klasseId: ref.id, rolle: "admin", kurseIds: [] });

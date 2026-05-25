@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Btn, Input, SectionTitle, Divider } from "../components/UI";
 import KurswahlModal from "../components/KurswahlModal";
 import { db, storage } from "../firebase";
-import { doc, deleteDoc, collection, getDocs } from "firebase/firestore";
+import {
+  doc, deleteDoc, collection, getDocs,
+  updateDoc, arrayUnion, arrayRemove, query, where, onSnapshot,
+} from "firebase/firestore";
 import { ref as sRef, deleteObject } from "firebase/storage";
 import { FACH_COLORS, FACH_ICONS } from "../styles/theme";
 
@@ -16,6 +19,24 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
   const [newNick, setNewNick]   = useState(profile?.nickname || "");
   const [saving, setSaving]     = useState(false);
   const [showKurswahl, setShowKurswahl] = useState(false);
+  const [members, setMembers]   = useState([]);
+
+  // Admin check – supports both old adminId and new adminIds
+  const isAdmin = klasse?.adminIds
+    ? klasse.adminIds.includes(profile?.uid)
+    : klasse?.adminId === profile?.uid;
+
+  const meineKurse = kurse.filter(k => profile?.kurseIds?.includes(k.id));
+
+  // Load all class members live
+  useEffect(() => {
+    if (!profile?.klasseId) return;
+    const q = query(collection(db, "users"), where("klasseId", "==", profile.klasseId));
+    const unsub = onSnapshot(q, snap => {
+      setMembers(snap.docs.map(d => d.data()).sort((a, b) => a.nickname.localeCompare(b.nickname)));
+    });
+    return unsub;
+  }, [profile?.klasseId]);
 
   const saveNick = async () => {
     if (!newNick.trim()) return;
@@ -24,10 +45,19 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
     setSaving(false); setEditNick(false);
   };
 
-  const meineKurse = kurse.filter(k => profile?.kurseIds?.includes(k.id));
-
   const saveKurswahl = async (kurseIds) => {
     await updateProfile({ kurseIds });
+  };
+
+  const promote = async (uid) => {
+    await updateDoc(doc(db, "klassen", profile.klasseId), { adminIds: arrayUnion(uid) });
+  };
+
+  const demote = async (uid) => {
+    // Prevent removing last admin
+    const currentAdmins = klasse?.adminIds || [];
+    if (currentAdmins.length <= 1) return window.alert("Es muss mindestens ein Admin verbleiben.");
+    await updateDoc(doc(db, "klassen", profile.klasseId), { adminIds: arrayRemove(uid) });
   };
 
   const deleteKlasse = async () => {
@@ -50,6 +80,8 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
     await updateProfile({ klasseId: null, rolle: "schueler", kurseIds: [] });
   };
 
+  const adminIds = klasse?.adminIds || (klasse?.adminId ? [klasse.adminId] : []);
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg }}>
       {/* Top bar */}
@@ -58,7 +90,7 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
         <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>Profil & Einstellungen</div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 48px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "48px 48px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
 
         {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -74,7 +106,7 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
                 <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{profile?.nickname}</div>
                 <div style={{ fontSize: 13, color: t.textMuted, marginTop: 3 }}>{profile?.email}</div>
                 <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-                  {profile?.rolle === "admin" ? "👑 Klassen-Admin" : "Schüler"}
+                  {isAdmin ? "👑 Klassen-Admin" : "Schüler"}
                 </div>
               </div>
             </div>
@@ -112,7 +144,7 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
               </button>
             </div>
             <Divider />
-            {profile?.rolle === "admin" && <>
+            {isAdmin && <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontSize: 15, color: t.text }}>Klasse löschen</div>
@@ -126,35 +158,89 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
           </div>
         </div>
 
-        {/* Right column – my courses */}
-        <div style={{ background: t.bgCard, borderRadius: 16, padding: 28, border: `1px solid ${t.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <SectionTitle style={{ marginBottom: 0 }}>Meine Kurse ({meineKurse.length})</SectionTitle>
-            <Btn variant="ghost" onClick={() => setShowKurswahl(true)} style={{ fontSize: 12, padding: "6px 12px" }}>⚙️ Verwalten</Btn>
-          </div>
-          {meineKurse.length === 0
-            ? <div style={{ fontSize: 14, color: t.textMuted, padding: "20px 0" }}>Noch keinem Kurs beigetreten.</div>
-            : <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {meineKurse.map(k => (
-                <div key={k.id} onClick={() => { onKursClick(k); onClose(); }}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 14px", borderRadius: 12, cursor: "pointer", transition: "background .15s" }}
-                  onMouseOver={e => e.currentTarget.style.background = t.bgHover}
-                  onMouseOut={e => e.currentTarget.style.background = "transparent"}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: (FACH_COLORS[k.name] || t.accent) + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
-                    {FACH_ICONS[k.name] || "📚"}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{k.name}</div>
-                    {k.lehrer && <div style={{ fontSize: 12, color: t.textMuted }}>{k.lehrer}</div>}
-                  </div>
-                  <div style={{ fontSize: 13, color: t.textMuted }}>→</div>
-                </div>
-              ))}
+        {/* Right column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* My courses */}
+          <div style={{ background: t.bgCard, borderRadius: 16, padding: 28, border: `1px solid ${t.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <SectionTitle style={{ marginBottom: 0 }}>Meine Kurse ({meineKurse.length})</SectionTitle>
+              <Btn variant="ghost" onClick={() => setShowKurswahl(true)} style={{ fontSize: 12, padding: "6px 12px" }}>⚙️ Verwalten</Btn>
             </div>
-          }
-          <Divider />
-          <div style={{ fontSize: 13, color: t.textMuted, paddingTop: 8, lineHeight: 1.6 }}>
-            Kurse beitreten oder verlassen über „Kurse verwalten".
+            {meineKurse.length === 0
+              ? <div style={{ fontSize: 14, color: t.textMuted, padding: "20px 0" }}>Noch keinem Kurs beigetreten.</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {meineKurse.map(k => (
+                  <div key={k.id} onClick={() => { onKursClick(k); onClose(); }}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 14px", borderRadius: 12, cursor: "pointer", transition: "background .15s" }}
+                    onMouseOver={e => e.currentTarget.style.background = t.bgHover}
+                    onMouseOut={e => e.currentTarget.style.background = "transparent"}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: (FACH_COLORS[k.name] || t.accent) + "20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+                      {FACH_ICONS[k.name] || "📚"}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{k.name}</div>
+                      {k.lehrer && <div style={{ fontSize: 12, color: t.textMuted }}>{k.lehrer}</div>}
+                    </div>
+                    <div style={{ fontSize: 13, color: t.textMuted }}>→</div>
+                  </div>
+                ))}
+              </div>
+            }
+          </div>
+
+          {/* Member list */}
+          <div style={{ background: t.bgCard, borderRadius: 16, padding: 28, border: `1px solid ${t.border}` }}>
+            <SectionTitle>Klassenmitglieder ({members.length})</SectionTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {members.map(m => {
+                const memberIsAdmin = adminIds.includes(m.uid);
+                const isSelf        = m.uid === profile?.uid;
+                return (
+                  <div key={m.uid} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 12, background: isSelf ? t.accent + "0d" : "transparent" }}>
+                    {/* Avatar */}
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: memberIsAdmin ? t.accent : t.bgSub, display: "flex", alignItems: "center", justifyContent: "center", color: memberIsAdmin ? t.accentFg : t.textSub, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                      {m.nickname?.[0]?.toUpperCase()}
+                    </div>
+
+                    {/* Name + badge */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.nickname}{isSelf ? " (du)" : ""}
+                        </span>
+                        {memberIsAdmin && (
+                          <span style={{ fontSize: 10, fontWeight: 700, background: t.accent + "22", color: t.accent, padding: "2px 7px", borderRadius: 20, flexShrink: 0 }}>
+                            👑 Admin
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Promote / Demote – only visible to admins, not for self */}
+                    {isAdmin && !isSelf && (
+                      memberIsAdmin ? (
+                        <Btn
+                          variant="ghost"
+                          onClick={() => demote(m.uid)}
+                          style={{ fontSize: 11, padding: "4px 10px", color: t.textMuted }}
+                        >
+                          Admin entfernen
+                        </Btn>
+                      ) : (
+                        <Btn
+                          variant="ghost"
+                          onClick={() => promote(m.uid)}
+                          style={{ fontSize: 11, padding: "4px 10px" }}
+                        >
+                          👑 Zum Admin
+                        </Btn>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
