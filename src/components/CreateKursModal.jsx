@@ -18,6 +18,7 @@ export default function CreateKursModal({ klasseId, onClose, onCreated }) {
   const [zeiten, setZeiten]   = useState([]);
   const [selDay, setSelDay]   = useState("Mo");
   const [zeit, setZeit]       = useState("08:00");
+  const [zeitEnde, setZeitEnde] = useState("09:30");
   const [farbe, setFarbe]     = useState("#6366f1");
   const [icon, setIcon]       = useState("📚");
   const [loading, setLoading] = useState(false);
@@ -31,9 +32,9 @@ export default function CreateKursModal({ klasseId, onClose, onCreated }) {
 
   const addZeit = () => {
     if (zeiten.find(z => z.day === selDay)) {
-      setZeiten(p => p.map(z => z.day === selDay ? { ...z, zeit } : z));
+      setZeiten(p => p.map(z => z.day === selDay ? { ...z, zeit, zeitEnde } : z));
     } else {
-      setZeiten(p => [...p, { day: selDay, zeit }]);
+      setZeiten(p => [...p, { day: selDay, zeit, zeitEnde }]);
     }
   };
 
@@ -141,13 +142,16 @@ export default function CreateKursModal({ klasseId, onClose, onCreated }) {
             </div>
             <input type="time" value={zeit} onChange={e => setZeit(e.target.value)}
               style={{ background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 14, outline: "none" }} />
+            <span style={{ fontSize: 12, color: t.textMuted }}>–</span>
+            <input type="time" value={zeitEnde} onChange={e => setZeitEnde(e.target.value)}
+              style={{ background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 14, outline: "none" }} />
             <Btn onClick={addZeit} variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }}>+ Hinzufügen</Btn>
           </div>
           {zeiten.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {zeiten.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day)).map(z => (
                 <div key={z.day} style={{ display: "flex", alignItems: "center", gap: 6, background: farbe + "20", borderRadius: 8, padding: "5px 10px" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: farbe }}>{z.day} {z.zeit}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: farbe }}>{z.day} {z.zeit}{z.zeitEnde ? `–${z.zeitEnde}` : ""}</span>
                   <button onClick={() => removeZeit(z.day)} style={{ background: "none", border: "none", color: farbe, cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
                 </div>
               ))}

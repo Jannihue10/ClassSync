@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useTheme } from "../context/ThemeContext";
@@ -17,10 +17,20 @@ export default function EditKursModal({ kurs, klasseId, onClose, onSaved }) {
   const [zeiten, setZeiten]   = useState(kurs.zeiten || []);
   const [selDay, setSelDay]   = useState("Mo");
   const [zeit, setZeit]       = useState("08:00");
+  const [zeitEnde, setZeitEnde] = useState("09:30");
   const [farbe, setFarbe]     = useState(kurs.farbe || FACH_COLORS[kurs.name] || "#6366f1");
   const [icon, setIcon]       = useState(kurs.icon || FACH_ICONS[kurs.name] || "📚");
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState("");
+
+  // Pre-fill time inputs when switching day
+  useEffect(() => {
+    const existing = zeiten.find(z => z.day === selDay);
+    if (existing) {
+      setZeit(existing.zeit || "08:00");
+      setZeitEnde(existing.zeitEnde || "09:30");
+    }
+  }, [selDay]);
 
   const selectVorlage = (fach) => {
     setName(fach);
@@ -30,9 +40,9 @@ export default function EditKursModal({ kurs, klasseId, onClose, onSaved }) {
 
   const addZeit = () => {
     if (zeiten.find(z => z.day === selDay)) {
-      setZeiten(p => p.map(z => z.day === selDay ? { ...z, zeit } : z));
+      setZeiten(p => p.map(z => z.day === selDay ? { ...z, zeit, zeitEnde } : z));
     } else {
-      setZeiten(p => [...p, { day: selDay, zeit }]);
+      setZeiten(p => [...p, { day: selDay, zeit, zeitEnde }]);
     }
   };
 
@@ -127,13 +137,16 @@ export default function EditKursModal({ kurs, klasseId, onClose, onSaved }) {
             </div>
             <input type="time" value={zeit} onChange={e => setZeit(e.target.value)}
               style={{ background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 14, outline: "none" }} />
+            <span style={{ fontSize: 12, color: t.textMuted }}>–</span>
+            <input type="time" value={zeitEnde} onChange={e => setZeitEnde(e.target.value)}
+              style={{ background: t.bgSub, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 14, outline: "none" }} />
             <Btn onClick={addZeit} variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }}>+ Hinzufügen</Btn>
           </div>
           {zeiten.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {zeiten.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day)).map(z => (
                 <div key={z.day} style={{ display: "flex", alignItems: "center", gap: 6, background: farbe + "20", borderRadius: 8, padding: "5px 10px" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: farbe }}>{z.day} {z.zeit}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: farbe }}>{z.day} {z.zeit}{z.zeitEnde ? `–${z.zeitEnde}` : ""}</span>
                   <button onClick={() => removeZeit(z.day)} style={{ background: "none", border: "none", color: farbe, cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
                 </div>
               ))}

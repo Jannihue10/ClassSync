@@ -9,7 +9,8 @@ import { Spinner } from "./components/UI";
 import Login        from "./pages/Login";
 import Register     from "./pages/Register";
 import Onboarding   from "./pages/Onboarding";
-import Stundenplan  from "./pages/Stundenplan";
+import KalenderView    from "./pages/KalenderView";
+import Stundenplan     from "./pages/Stundenplan";
 import KursView     from "./pages/KursView";
 import Profile      from "./pages/Profile";
 import TopBar       from "./components/TopBar";
@@ -32,6 +33,7 @@ export default function App() {
   const [showCreateKurs, setShowCreateKurs] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [showKalendar, setShowKalendar]   = useState(false);
 
   // Load klasse + kurse from Firestore when profile is ready
   useEffect(() => {
@@ -142,6 +144,11 @@ export default function App() {
     <Profile kurse={kurse} klasse={klasse} onClose={() => setShowProfile(false)} onKursClick={k => { setActiveKurs(k); setShowProfile(false); }} />
   );
 
+  // Kalender page
+  if (showKalendar) return (
+    <KalenderView klasse={klasse} kurse={kurse} onClose={() => setShowKalendar(false)} />
+  );
+
   // Main app
   return (
     <div style={{ height: "100vh", background: t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -194,6 +201,7 @@ export default function App() {
             kurse={kurse}
             onOpenKurs={setActiveKurs}
             onCreateKurs={() => setShowCreateKurs(true)}
+            onOpenKalendar={() => setShowKalendar(true)}
           />
         )}
       </div>

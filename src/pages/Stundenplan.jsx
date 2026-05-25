@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Empty } from "../components/UI";
 import { DAYS, DAY_FULL, FACH_COLORS, FACH_ICONS } from "../styles/theme";
 
-export default function Stundenplan({ kurse, onOpenKurs, onCreateKurs }) {
+export default function Stundenplan({ kurse, onOpenKurs, onCreateKurs, onOpenKalendar }) {
   const { t } = useTheme();
   const { profile } = useAuth();
 
@@ -27,6 +27,14 @@ export default function Stundenplan({ kurse, onOpenKurs, onCreateKurs }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
         <div style={{ flex: 1, fontSize: 24, fontWeight: 700, color: t.text }}>Stundenplan</div>
+        <button onClick={onOpenKalendar} style={{
+          background: t.bgSub, border: `1px solid ${t.border}`,
+          borderRadius: 8, padding: "7px 14px",
+          color: t.textSub, fontSize: 13, fontWeight: 600, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          📅 Kalender
+        </button>
         <div style={{ display: "flex", gap: 6 }}>
           {DAYS.map(d => (
             <button key={d} onClick={() => setDay(d)}
