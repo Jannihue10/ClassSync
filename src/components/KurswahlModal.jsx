@@ -8,7 +8,10 @@ export default function KurswahlModal({ alleKurse, onClose, onSave }) {
   const { t } = useTheme();
   const { profile } = useAuth();
 
-  const [selected, setSelected] = useState(new Set(profile?.kurseIds || []));
+  const gueltigeIds = new Set(alleKurse.map(k => k.id));
+  const [selected, setSelected] = useState(
+    new Set((profile?.kurseIds || []).filter(id => gueltigeIds.has(id)))
+  );
   const [search, setSearch]     = useState("");
   const [saving, setSaving]     = useState(false);
 
