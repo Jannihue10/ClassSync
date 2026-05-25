@@ -26,7 +26,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
       const u1 = onSnapshot(
         collection(db, "klassen", klasse.id, "kurse", k.id, "hausaufgaben"),
         snap => {
-          const has = snap.docs.map(d => ({ id: d.id, ...d.data(), fach: k.name })).filter(h => !h.done);
+          const has = snap.docs.map(d => ({ id: d.id, ...d.data(), fach: k.name })).filter(h => !h.doneBy?.includes(profile.uid));
           setAllHAs(prev => {
             const others = prev.filter(h => h.kursId !== k.id);
             return [...others, ...has.map(h => ({ ...h, kursId: k.id }))];
