@@ -200,7 +200,10 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
   };
 
   const toggleHA = async (ha) => {
-    await updateDoc(doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id), { done: !ha.done });
+    const isDone = ha.doneBy?.includes(profile.uid);
+    await updateDoc(doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id), {
+      doneBy: isDone ? arrayRemove(profile.uid) : arrayUnion(profile.uid),
+    });
   };
 
   const sendMsg = async () => {
@@ -216,7 +219,7 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
 
   const TABS = [
     { id: "material",     label: "📁 Materialien",   count: materialien.length },
-    { id: "hausaufgaben", label: "📋 Hausaufgaben",   count: hausaufgaben.filter(h => !h.done).length || null },
+    { id: "hausaufgaben", label: "📋 Hausaufgaben",   count: hausaufgaben.filter(h => !h.doneBy?.includes(profile.uid)).length || null },
     { id: "chat",         label: "💬 Chat",           count: null },
     { id: "pruefungen",   label: "📝 Prüfungen",      count: pruefungen.length || null },
   ];
@@ -324,23 +327,25 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
           <div style={{ maxWidth: 580, display: "flex", flexDirection: "column", gap: 10 }}>
             {isMember && <div style={{ marginBottom: 8 }}><Btn onClick={() => setAddingHA(true)} style={{ fontSize: 13 }}>+ HA eintragen</Btn></div>}
             {hausaufgaben.length === 0
-              ? <Empty icon="✅" text="Keine Hausaufgaben!" />
-              : hausaufgaben.map(h => (
-                <div key={h.id} style={{ background: t.bgCard, borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${t.border}` }}>
-                  <div onClick={() => isMember && toggleHA(h)}
-                    style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${h.done ? t.success : t.border}`, background: h.done ? t.success : "transparent", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
-                    {h.done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: h.done ? t.textMuted : t.text, textDecoration: h.done ? "line-through" : "none" }}>{h.text}</div>
-                    {h.faellig && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Fällig: {h.faellig}</div>}
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, background: h.done ? t.success + "20" : t.warning + "20", color: h.done ? t.success : t.warning }}>
-                    {h.done ? "Erledigt" : h.faellig || "—"}
-                  </span>
+            ? <Empty icon="✅" text="Keine Hausaufgaben!" />
+            : hausaufgaben.map(h => {
+            const done = h.doneBy?.includes(profile.uid);
+            return (
+            <div key={h.id} style={{ background: t.bgCard, borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${t.border}` }}>
+            <div onClick={() => isMember && toggleHA(h)}
+              style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${done ? t.success : t.border}`, background: done ? t.success : "transparent", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
+              {done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none" }}>{h.text}</div>
+              {h.faellig && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Fällig: {h.faellig}</div>}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, background: done ? t.success + "20" : t.warning + "20", color: done ? t.success : t.warning }}>
+                {done ? "Erledigt" : h.faellig || "—"}
+                </span>
                 </div>
-              ))
-            }
+                );
+              })}
           </div>
         )}
 
