@@ -123,7 +123,7 @@ export default function KalenderView({ klasse, kurse, onClose }) {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
           {/* Tages-Header – bleibt sichtbar */}
-          <div style={{ display: "flex", flexShrink: 0, paddingRight: 8, paddingBottom: 10 }}>
+          <div style={{ display: "flex", flexShrink: 0, paddingRight: 8, paddingBottom: 5 }}>
             <div style={{ width: 44, flexShrink: 0 }} />
             <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
               {days.map(({ label, date }) => {

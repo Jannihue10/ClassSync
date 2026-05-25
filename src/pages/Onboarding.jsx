@@ -2,7 +2,8 @@ import { useState } from "react";
 import { db } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Input, Btn, Modal, ModalHeader } from "../components/UI";
+import { Input, Btn } from "../components/UI";
+import KurswahlModal from "../components/KurswahlModal";
 import {
   collection, addDoc, getDocs, query, where,
   doc, updateDoc, arrayUnion,
@@ -18,6 +19,10 @@ export default function Onboarding() {
   const [mode, setMode]         = useState(null); // "create" | "join"
   const [loading, setLoading]   = useState(false);
   const [err, setErr]           = useState("");
+
+  const [pendingKlasseId, setPendingKlasseId] = useState(null);
+  const [pendingKurse, setPendingKurse]       = useState([]);
+  const [showKurswahl, setShowKurswahl]       = useState(false);
 
   // Create class
   const [className, setClassName] = useState("");
@@ -52,7 +57,14 @@ export default function Onboarding() {
       const snap = await getDocs(q);
       if (snap.empty) { setErr("Ungültiger Code."); setLoading(false); return; }
       const klasseId = snap.docs[0].id;
-      await updateProfile({ klasseId, rolle: "schueler", kurseIds: [] });
+
+      // Kurse der Klasse laden
+      const kurseSnap = await getDocs(collection(db, "klassen", klasseId, "kurse"));
+      const kurse = kurseSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      setPendingKlasseId(klasseId);
+      setPendingKurse(kurse);
+      setShowKurswahl(true);
     } catch (e) {
       setErr("Fehler beim Beitreten.");
     } finally {
@@ -60,8 +72,19 @@ export default function Onboarding() {
     }
   };
 
+  const finishJoin = async (kurseIds) => {
+    await updateProfile({ klasseId: pendingKlasseId, rolle: "schueler", kurseIds });
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      {showKurswahl && (
+        <KurswahlModal
+          alleKurse={pendingKurse}
+          onClose={() => setShowKurswahl(false)}
+          onSave={finishJoin}
+        />
+      )}
       <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 24 }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

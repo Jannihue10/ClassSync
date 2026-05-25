@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Btn, Input, SectionTitle, Divider } from "../components/UI";
+import KurswahlModal from "../components/KurswahlModal";
 import { db, storage } from "../firebase";
 import { doc, deleteDoc, collection, getDocs } from "firebase/firestore";
 import { ref as sRef, deleteObject } from "firebase/storage";
@@ -14,6 +15,7 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
   const [editNick, setEditNick] = useState(false);
   const [newNick, setNewNick]   = useState(profile?.nickname || "");
   const [saving, setSaving]     = useState(false);
+  const [showKurswahl, setShowKurswahl] = useState(false);
 
   const saveNick = async () => {
     if (!newNick.trim()) return;
@@ -24,6 +26,10 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
 
   const meineKurse = kurse.filter(k => profile?.kurseIds?.includes(k.id));
 
+  const saveKurswahl = async (kurseIds) => {
+    await updateProfile({ kurseIds });
+  };
+
   const deleteKlasse = async () => {
     if (!window.confirm("Klasse wirklich löschen? Alle Kurse und Materialien werden unwiderruflich gelöscht.")) return;
     const klasseId = profile.klasseId;
@@ -32,7 +38,6 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
       for (const sub of ["materialien", "hausaufgaben", "pruefungen", "chat"]) {
         const subSnap = await getDocs(collection(db, "klassen", klasseId, "kurse", kursDoc.id, sub));
         for (const d of subSnap.docs) {
-          // Storage-Dateien löschen
           if (sub === "materialien" && d.data().storagePath) {
             try { await deleteObject(sRef(storage, d.data().storagePath)); } catch (e) {}
           }
@@ -84,7 +89,6 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
               <Btn variant="ghost" onClick={() => setEditNick(true)} style={{ alignSelf: "flex-start", fontSize: 13 }}>✏️ Nickname ändern</Btn>
             )}
 
-            {/* Klasse & Code */}
             {klasse && (
               <div style={{ background: t.bgSub, borderRadius: 12, padding: "14px 16px", border: `1px solid ${t.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Meine Klasse</div>
@@ -124,7 +128,10 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
 
         {/* Right column – my courses */}
         <div style={{ background: t.bgCard, borderRadius: 16, padding: 28, border: `1px solid ${t.border}` }}>
-          <SectionTitle>Meine Kurse ({meineKurse.length})</SectionTitle>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <SectionTitle style={{ marginBottom: 0 }}>Meine Kurse ({meineKurse.length})</SectionTitle>
+            <Btn variant="ghost" onClick={() => setShowKurswahl(true)} style={{ fontSize: 12, padding: "6px 12px" }}>⚙️ Verwalten</Btn>
+          </div>
           {meineKurse.length === 0
             ? <div style={{ fontSize: 14, color: t.textMuted, padding: "20px 0" }}>Noch keinem Kurs beigetreten.</div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -147,10 +154,18 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
           }
           <Divider />
           <div style={{ fontSize: 13, color: t.textMuted, paddingTop: 8, lineHeight: 1.6 }}>
-            Um Kurse zu wechseln, besuche einfach einen Kurs auf der Startseite und klicke „Beitreten" oder „Verlassen".
+            Kurse beitreten oder verlassen über „Kurse verwalten".
           </div>
         </div>
       </div>
+
+      {showKurswahl && (
+        <KurswahlModal
+          alleKurse={kurse}
+          onClose={() => setShowKurswahl(false)}
+          onSave={saveKurswahl}
+        />
+      )}
     </div>
   );
 }
