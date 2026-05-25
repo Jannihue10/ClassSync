@@ -80,11 +80,8 @@ export default function KalenderView({ klasse, kurse, onClose }) {
   }, [klasse?.id, meineKurse.length]);
 
   // ── WOCHENANSICHT ──────────────────────────────────────────────
-  const DAY_START   = 8 * 60;   // 08:00
-  const DAY_END     = 14 * 60;  // 14:00
-  const PX_PER_MIN  = 1.9;
-  const totalHeight = (DAY_END - DAY_START) * PX_PER_MIN;
-  const hourMarkers = Array.from({ length: 7 }, (_, i) => 8 + i); // 8–14
+  const DAY_START  = 8 * 60;  // 08:00 fest
+  const PX_PER_MIN = 1.9;
 
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); };
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); };
@@ -99,11 +96,22 @@ export default function KalenderView({ klasse, kurse, onClose }) {
     const friday = new Date(weekStart);
     friday.setDate(weekStart.getDate() + 4);
 
-    return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px 40px" }}>
+    // Dynamische Endzeit: späteste zeitEnde aller Kurse, mind. 14:00
+    const allSlots = meineKurse.flatMap(k => k.zeiten || []);
+    const latestMin = allSlots.reduce((max, z) => {
+      const m = parseTime(z.zeitEnde);
+      return m && m > max ? m : max;
+    }, 14 * 60);
+    const DAY_END     = latestMin + 30; // 30 min Puffer
+    const totalHeight = (DAY_END - DAY_START) * PX_PER_MIN;
+    const hourMarkers = [];
+    for (let h = 8; h * 60 <= DAY_END; h++) hourMarkers.push(h);
 
-        {/* Navigation */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "24px 32px 0" }}>
+
+        {/* Navigation – bleibt sichtbar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
           <NavBtn onClick={prevWeek} t={t}>← Vorherige</NavBtn>
           <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>
             KW {getKW(weekStart)} · {weekStart.getDate()}. {MONAT_NAMES[weekStart.getMonth()]} – {friday.getDate()}. {MONAT_NAMES[friday.getMonth()]} {friday.getFullYear()}
@@ -111,40 +119,18 @@ export default function KalenderView({ klasse, kurse, onClose }) {
           <NavBtn onClick={nextWeek} t={t}>Nächste →</NavBtn>
         </div>
 
-        {/* Grid */}
-        <div style={{ display: "flex", gap: 0, minWidth: 0 }}>
+        {/* Tages-Header + scrollbares Raster */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* Time axis */}
-          <div style={{ width: 44, flexShrink: 0, position: "relative", marginTop: 52 }}>
-            <div style={{ position: "relative", height: totalHeight }}>
-              {hourMarkers.map(h => (
-                <div key={h} style={{
-                  position: "absolute",
-                  top: (h * 60 - DAY_START) * PX_PER_MIN - 7,
-                  right: 8,
-                  fontSize: 10,
-                  color: t.textMuted,
-                  fontWeight: 500,
-                }}>
-                  {h}:00
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Day columns */}
-          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
-            {days.map(({ label, date }) => {
-              const isToday = date.toDateString() === today.toDateString();
-              const slots = meineKurse.flatMap(k =>
-                (k.zeiten || []).filter(z => z.day === label).map(z => ({ ...z, kurs: k }))
-              );
-
-              return (
-                <div key={label}>
-                  {/* Day header */}
-                  <div style={{
-                    textAlign: "center", marginBottom: 8, padding: "8px 4px",
+          {/* Tages-Header – bleibt sichtbar */}
+          <div style={{ display: "flex", flexShrink: 0, paddingRight: 8 }}>
+            <div style={{ width: 44, flexShrink: 0 }} />
+            <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+              {days.map(({ label, date }) => {
+                const isToday = date.toDateString() === today.toDateString();
+                return (
+                  <div key={label} style={{
+                    textAlign: "center", padding: "8px 4px",
                     borderRadius: 10,
                     background: isToday ? t.accent : "transparent",
                     color: isToday ? t.accentFg : t.textSub,
@@ -154,62 +140,100 @@ export default function KalenderView({ klasse, kurse, onClose }) {
                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", opacity: 0.7 }}>{label}</div>
                     <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2 }}>{date.getDate()}</div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  {/* Time slot column */}
-                  <div style={{
-                    position: "relative", height: totalHeight,
-                    background: t.bgSub, borderRadius: 10,
-                    border: `1px solid ${isToday ? t.accent + "44" : t.border}`,
-                    overflow: "hidden",
-                  }}>
-                    {/* Hour lines */}
-                    {hourMarkers.map(h => (
-                      <div key={h} style={{
-                        position: "absolute",
-                        top: (h * 60 - DAY_START) * PX_PER_MIN,
-                        left: 0, right: 0,
-                        borderTop: `1px solid ${t.border}`,
-                        opacity: 0.6,
-                      }} />
-                    ))}
+          {/* Scrollbares Raster */}
+          <div style={{ flex: 1, overflowY: "auto", paddingBottom: 24 }}>
+            <div style={{ display: "flex", gap: 0, minWidth: 0 }}>
 
-                    {/* Course blocks */}
-                    {slots.map((s, i) => {
-                      const startMin = parseTime(s.zeit);
-                      const endMin   = s.zeitEnde ? parseTime(s.zeitEnde) : (startMin ? startMin + 45 : null);
-                      if (startMin === null) return null;
-                      const top    = (startMin - DAY_START) * PX_PER_MIN;
-                      const height = Math.max((endMin - startMin) * PX_PER_MIN, 28);
-                      const color  = s.kurs.farbe || FACH_COLORS[s.kurs.name] || "#6366f1";
-                      const icon   = s.kurs.icon  || FACH_ICONS[s.kurs.name]  || "📚";
-
-                      return (
-                        <div key={i} style={{
-                          position: "absolute",
-                          top: top + 1, left: 3, right: 3,
-                          height: height - 2,
-                          background: color,
-                          borderRadius: 6,
-                          padding: "5px 7px",
-                          overflow: "hidden",
-                          cursor: "default",
-                        }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
-                            {icon} {s.kurs.name}
-                          </div>
-                          {height > 36 && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", marginTop: 1 }}>
-                              {s.zeit}{s.zeitEnde ? `–${s.zeitEnde}` : ""}
-                              {s.kurs.raum ? ` · R.${s.kurs.raum}` : ""}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Zeitachse */}
+              <div style={{ width: 44, flexShrink: 0, position: "relative" }}>
+                <div style={{ position: "relative", height: totalHeight }}>
+                  {hourMarkers.map(h => (
+                    <div key={h} style={{
+                      position: "absolute",
+                      top: (h * 60 - DAY_START) * PX_PER_MIN - 7,
+                      right: 8,
+                      fontSize: 10,
+                      color: t.textMuted,
+                      fontWeight: 500,
+                    }}>
+                      {h}:00
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Tag-Spalten */}
+              <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+                {days.map(({ label, date }) => {
+                  const isToday = date.toDateString() === today.toDateString();
+                  const slots = meineKurse.flatMap(k =>
+                    (k.zeiten || []).filter(z => z.day === label).map(z => ({ ...z, kurs: k }))
+                  );
+
+                  return (
+                    <div key={label}>
+                      {/* Zeit-Spalte */}
+                      <div style={{
+                        position: "relative", height: totalHeight,
+                        background: t.bgSub, borderRadius: 10,
+                        border: `1px solid ${isToday ? t.accent + "44" : t.border}`,
+                        overflow: "hidden",
+                      }}>
+                        {/* Stundenlinien */}
+                        {hourMarkers.map(h => (
+                          <div key={h} style={{
+                            position: "absolute",
+                            top: (h * 60 - DAY_START) * PX_PER_MIN,
+                            left: 0, right: 0,
+                            borderTop: `1px solid ${t.border}`,
+                            opacity: 0.6,
+                          }} />
+                        ))}
+
+                        {/* Kursblöcke */}
+                        {slots.map((s, i) => {
+                          const startMin = parseTime(s.zeit);
+                          const endMin   = s.zeitEnde ? parseTime(s.zeitEnde) : (startMin ? startMin + 45 : null);
+                          if (startMin === null) return null;
+                          const top    = (startMin - DAY_START) * PX_PER_MIN;
+                          const height = Math.max((endMin - startMin) * PX_PER_MIN, 28);
+                          const color  = s.kurs.farbe || FACH_COLORS[s.kurs.name] || "#6366f1";
+                          const icon   = s.kurs.icon  || FACH_ICONS[s.kurs.name]  || "📚";
+
+                          return (
+                            <div key={i} style={{
+                              position: "absolute",
+                              top: top + 1, left: 3, right: 3,
+                              height: height - 2,
+                              background: color,
+                              borderRadius: 6,
+                              padding: "5px 7px",
+                              overflow: "hidden",
+                              cursor: "default",
+                            }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+                                {icon} {s.kurs.name}
+                              </div>
+                              {height > 36 && (
+                                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", marginTop: 1 }}>
+                                  {s.zeit}{s.zeitEnde ? `–${s.zeitEnde}` : ""}
+                                  {s.kurs.raum ? ` · R.${s.kurs.raum}` : ""}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
