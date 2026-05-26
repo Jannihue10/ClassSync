@@ -66,11 +66,12 @@ export default function Login({ onSwitch }) {
             <Btn onClick={submit} disabled={loading} full>
               {loading ? "Wird angemeldet…" : "Anmelden →"}
             </Btn>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: t.textMuted }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: t.textMuted, paddingTop: 4 }}>
               <span>
                 Noch kein Account?{" "}
                 <span onClick={onSwitch} style={{ color: t.text, fontWeight: 600, cursor: "pointer" }}>Registrieren</span>
               </span>
+              <div style={{ width: 1, height: 14, background: t.border }} />
               <span onClick={() => { setResetMode(true); setResetEmail(email); }}
                 style={{ color: t.text, fontWeight: 500, cursor: "pointer" }}>
                 Passwort vergessen?
