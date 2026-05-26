@@ -6,6 +6,15 @@ import { useTheme } from "../context/ThemeContext";
 import { Btn, SectionTitle } from "./UI";
 import { FACH_COLORS } from "../styles/theme";
 
+function calcTage(datum) {
+  if (!datum) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(datum);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+}
+
 export default function OverviewPanel({ klasse, kurse, onClose }) {
   const { t } = useTheme();
   const { profile } = useAuth();
@@ -50,7 +59,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
     return () => unsubs.forEach(u => u());
   }, [klasse?.id, meineKurse.length]);
 
-  const sortedPrs = [...allPrs].sort((a, b) => (a.tage || 999) - (b.tage || 999));
+  const sortedPrs = [...allPrs].sort((a, b) => (calcTage(a.datum) ?? 999) - (calcTage(b.datum) ?? 999));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 900, display: "flex" }}>
@@ -102,7 +111,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
             : sortedPrs.map((p, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${t.borderSub}` }}>
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: FACH_COLORS[p.fach] || t.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage ?? "?"}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{calcTage(p.datum) ?? "?"}</span>
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.titel}</div>

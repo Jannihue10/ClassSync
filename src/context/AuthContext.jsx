@@ -39,9 +39,8 @@ export function AuthProvider({ children }) {
       uid:       cred.user.uid,
       nickname,
       email,
-      klasseId:  null,   // set after joining a class
-      kurseIds:  [],     // ids of courses the user has joined
-      rolle:     "schueler",
+      klasseId:  null,
+      kurseIds:  [],
       createdAt: Date.now(),
     };
     await setDoc(doc(db, "users", cred.user.uid), profileData);

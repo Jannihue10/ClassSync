@@ -77,7 +77,7 @@ export default function Profile({ kurse, klasse, onClose, onKursClick }) {
       await deleteDoc(kursDoc.ref);
     }
     await deleteDoc(doc(db, "klassen", klasseId));
-    await updateProfile({ klasseId: null, rolle: "schueler", kurseIds: [] });
+    await updateProfile({ klasseId: null, kurseIds: [] });
   };
 
   const adminIds = klasse?.adminIds || (klasse?.adminId ? [klasse.adminId] : []);

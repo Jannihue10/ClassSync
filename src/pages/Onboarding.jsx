@@ -41,7 +41,7 @@ export default function Onboarding() {
         adminIds:  [profile.uid],
         createdAt: Date.now(),
       });
-      await updateProfile({ klasseId: ref.id, rolle: "admin", kurseIds: [] });
+      await updateProfile({ klasseId: ref.id, kurseIds: [] });
     } catch (e) {
       setErr("Fehler beim Erstellen.");
     } finally {
@@ -73,7 +73,7 @@ export default function Onboarding() {
   };
 
   const finishJoin = async (kurseIds) => {
-    await updateProfile({ klasseId: pendingKlasseId, rolle: "schueler", kurseIds });
+    await updateProfile({ klasseId: pendingKlasseId, kurseIds });
   };
 
   return (

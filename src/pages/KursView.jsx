@@ -12,6 +12,16 @@ import UploadModal from "../components/UploadModal";
 import EditKursModal from "../components/EditKursModal";
 import { FACH_COLORS, FACH_ICONS, MAT_TYPEN, MAT_COLORS } from "../styles/theme";
 
+// ── Hilfsfunktion: Tage bis Datum ───────────────────────────────────────────
+function calcTage(datum) {
+  if (!datum) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(datum);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+}
+
 // ── Material Viewer ────────────────────────────────────────────────────────────
 function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
   const { profile } = useAuth();
@@ -111,9 +121,8 @@ function AddPruefungModal({ klasseId, kursId, onClose }) {
   const submit = async () => {
     if (!titel.trim() || !datum) return;
     setLoading(true);
-    const tage = Math.ceil((new Date(datum) - new Date()) / (1000 * 60 * 60 * 24));
     await addDoc(collection(db, "klassen", klasseId, "kurse", kursId, "pruefungen"), {
-      titel: titel.trim(), datum, tage,
+      titel: titel.trim(), datum,
       autor: profile.nickname, createdAt: serverTimestamp(),
     });
     setLoading(false); onClose();
@@ -386,19 +395,22 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
             {isMember && <div style={{ marginBottom: 8 }}><Btn onClick={() => setAddingPr(true)} style={{ fontSize: 13 }}>+ Prüfung eintragen</Btn></div>}
             {pruefungen.length === 0
               ? <Empty icon="🎉" text="Keine Prüfungen eingetragen" />
-              : pruefungen.map(p => (
+              : pruefungen.map(p => {
+                const tage = calcTage(p.datum);
+                return (
                 <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${col}` }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{p.tage}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{tage ?? "?"}</span>
                     <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)" }}>Tage</span>
                   </div>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{p.titel}</div>
                     <div style={{ fontSize: 12, color: t.textMuted, marginTop: 3 }}>📅 {p.datum}</div>
                   </div>
-                  <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: p.tage <= 7 ? t.danger : p.tage <= 14 ? t.warning : t.success }} />
+                  <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: tage <= 7 ? t.danger : tage <= 14 ? t.warning : t.success }} />
                 </div>
-              ))
+                );
+              })
             }
           </div>
         )}
