@@ -15,9 +15,13 @@ function parseTime(str) {
   return h * 60 + m;
 }
 
-// "17.06.2025" → Date
+// Datum parsen – unterstützt "YYYY-MM-DD" (date input) und "DD.MM.YYYY" (legacy)
 function parseDatum(datum) {
   if (!datum) return null;
+  if (datum.includes("-")) {
+    const [y, m, d] = datum.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
   const parts = datum.split(".");
   if (parts.length !== 3) return null;
   const [d, m, y] = parts.map(Number);
