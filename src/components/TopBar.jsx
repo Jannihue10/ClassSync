@@ -24,7 +24,9 @@ export default function TopBar({ klasseName, onUpload, onOverview, onProfile, no
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 30, height: 30, background: t.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📚</div>
-        <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>ClassSync</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
+          Class<span style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontStyle: "italic", fontWeight: 400 }}>Sync</span>
+        </span>
         {klasseName && <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 2 }}>· {klasseName}</span>}
       </div>
 

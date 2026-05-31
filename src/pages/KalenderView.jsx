@@ -274,7 +274,6 @@ export default function KalenderView({ klasse, kurse, onClose }) {
 
     // Index Prüfungen by date string
     const prByDate = {};
-    console.log("pruefungen:", pruefungen); // DEBUG
     pruefungen.forEach(p => {
       const d = parseDatum(p.datum);
       if (!d) return;
