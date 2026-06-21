@@ -135,7 +135,7 @@ function HADetailModal({ ha, klasseId, kursId, canEdit, onClose, onDeleteForSelf
             value={faellig}
             onChange={e => setFaellig(e.target.value)}
             disabled={!canEdit}
-            style={inputStyle(!canEdit)}
+            style={{ ...inputStyle(!canEdit), width: "fit-content", minWidth: 160 }}
           />
         </div>
 
