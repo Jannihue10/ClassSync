@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { db, storage } from "../firebase";
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs,
-  doc, serverTimestamp, arrayUnion, arrayRemove, query, orderBy,
+  doc, serverTimestamp, arrayUnion, arrayRemove, query, orderBy, where,
 } from "firebase/firestore";
 import { ref as sRef, deleteObject } from "firebase/storage";
 import { useAuth } from "../context/AuthContext";
@@ -12,7 +12,7 @@ import UploadModal from "../components/UploadModal";
 import EditKursModal from "../components/EditKursModal";
 import { FACH_COLORS, FACH_ICONS, MAT_TYPEN, MAT_COLORS } from "../styles/theme";
 
-// ── Hilfsfunktion: Tage bis Datum ───────────────────────────────────────────
+// ── Hilfsfunktion: Tage bis Datum ────────────────────────────────────────────
 function calcTage(datum) {
   if (!datum) return null;
   const today = new Date();
@@ -22,7 +22,7 @@ function calcTage(datum) {
   return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
 }
 
-// ── Material Viewer ────────────────────────────────────────────────────────────
+// ── Material Viewer ───────────────────────────────────────────────────────────
 function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
   const { profile } = useAuth();
   const { t } = useTheme();
@@ -82,30 +82,87 @@ function MaterialViewer({ mat, klasseId, kursId, onClose, isAdmin }) {
   );
 }
 
-// ── HA Modal ──────────────────────────────────────────────────────────────────
-function AddHAModal({ klasseId, kursId, onClose }) {
-  const { profile } = useAuth();
-  const [text, setText]       = useState("");
-  const [faellig, setFaellig] = useState("");
-  const [loading, setLoading] = useState(false);
+// ── HA Detail / Edit Modal ────────────────────────────────────────────────────
+function HADetailModal({ ha, klasseId, kursId, canEdit, onClose, onDeleteForSelf, onDeleteForAll }) {
+  const { t } = useTheme();
+  const [text, setText]       = useState(ha.text);
+  const [faellig, setFaellig] = useState(ha.faellig || "");
+  const [saving, setSaving]   = useState(false);
 
-  const submit = async () => {
+  const save = async () => {
     if (!text.trim()) return;
-    setLoading(true);
-    await addDoc(collection(db, "klassen", klasseId, "kurse", kursId, "hausaufgaben"), {
-      text: text.trim(), faellig, done: false,
-      autor: profile.nickname, createdAt: serverTimestamp(),
+    setSaving(true);
+    await updateDoc(doc(db, "klassen", klasseId, "kurse", kursId, "hausaufgaben", ha.id), {
+      text: text.trim(), faellig,
     });
-    setLoading(false); onClose();
+    setSaving(false);
+    onClose();
   };
+
+  const inputStyle = (disabled) => ({
+    width: "100%", boxSizing: "border-box",
+    background: disabled ? t.bgSub : t.bgSub,
+    border: `1px solid ${t.border}`,
+    borderRadius: 10, padding: "9px 12px",
+    color: disabled ? t.textMuted : t.text,
+    fontSize: 14, outline: "none",
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "not-allowed" : "text",
+  });
 
   return (
     <Modal onClose={onClose} width={420}>
-      <ModalHeader title="Hausaufgabe eintragen" onClose={onClose} />
+      <ModalHeader title="Hausaufgabe" onClose={onClose} />
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Input label="Aufgabe" value={text} onChange={e => setText(e.target.value)} placeholder="z. B. S. 87 Aufgaben 3–7" />
-        <Input label="Fällig am" type="date" value={faellig} onChange={e => setFaellig(e.target.value)} />
-        <Btn onClick={submit} disabled={loading || !text.trim()} full>Eintragen →</Btn>
+
+        {/* Aufgabe */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>Aufgabe</label>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            disabled={!canEdit}
+            rows={3}
+            style={{ ...inputStyle(!canEdit), resize: "vertical", fontFamily: "inherit" }}
+          />
+        </div>
+
+        {/* Datum */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: t.textMuted }}>Fällig am</label>
+          <input
+            type="date"
+            value={faellig}
+            onChange={e => setFaellig(e.target.value)}
+            disabled={!canEdit}
+            style={inputStyle(!canEdit)}
+          />
+        </div>
+
+        {/* Meta */}
+        <div style={{ fontSize: 12, color: t.textMuted }}>
+          Eingetragen von <span style={{ fontWeight: 600, color: t.textSub }}>{ha.autor}</span>
+          {!canEdit && <span style={{ marginLeft: 6, color: t.textMuted }}> · Nur der Ersteller kann bearbeiten</span>}
+        </div>
+
+        {/* Speichern */}
+        {canEdit && (
+          <Btn onClick={save} disabled={saving || !text.trim()} full>
+            {saving ? "Wird gespeichert…" : "Speichern"}
+          </Btn>
+        )}
+
+        {/* Löschen */}
+        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 14, display: "flex", gap: 8 }}>
+          <Btn variant="danger" onClick={() => { onDeleteForSelf(); onClose(); }} style={{ flex: 1, fontSize: 13 }}>
+            Für mich löschen
+          </Btn>
+          {canEdit && (
+            <Btn variant="danger" onClick={() => { onDeleteForAll(); onClose(); }} style={{ flex: 1, fontSize: 13 }}>
+              Für alle löschen
+            </Btn>
+          )}
+        </div>
       </div>
     </Modal>
   );
@@ -153,14 +210,20 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
   const [chatMsgs, setChat]     = useState([]);
   const [viewerId, setViewerId] = useState(null);
   const viewer = materialien.find(m => m.id === viewerId) || null;
-  const [uploading, setUploading] = useState(false);
-  const [editing, setEditing]     = useState(false);
-  const [addingHA, setAddingHA]   = useState(false);
-  const [addingPr, setAddingPr]   = useState(false);
-  const [msgIn, setMsgIn]         = useState("");
+
+  const [uploading, setUploading]   = useState(false);
+  const [editing, setEditing]       = useState(false);
+  const [addingPr, setAddingPr]     = useState(false);
+  const [selectedHA, setSelectedHA] = useState(null);
+
+  // Inline HA input
+  const [haText, setHaText]       = useState("");
+  const [haFaellig, setHaFaellig] = useState("");
+  const [haAdding, setHaAdding]   = useState(false);
+
+  const [msgIn, setMsgIn] = useState("");
   const chatRef = useRef(null);
 
-  // Use custom farbe/icon if set, otherwise fall back to defaults
   const col      = kurs.farbe || FACH_COLORS[kurs.name] || t.accent;
   const kursIcon = kurs.icon  || FACH_ICONS[kurs.name]  || "📚";
 
@@ -168,6 +231,9 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
   const isKlasseAdmin = klasseAdminIds.includes(profile?.uid);
   const isKursAdmin   = kurs.adminId === profile?.uid;
   const canEdit       = isKlasseAdmin || isKursAdmin;
+
+  // Nur HAs die der User nicht für sich gelöscht hat
+  const visibleHAs = hausaufgaben.filter(h => !h.hiddenBy?.includes(profile.uid));
 
   useEffect(() => {
     const base = `klassen/${klasseId}/kurse/${kurs.id}`;
@@ -208,11 +274,52 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
     onBack();
   };
 
+  const addHA = async () => {
+    if (!haText.trim() || haAdding) return;
+    setHaAdding(true);
+    await addDoc(collection(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben"), {
+      text:    haText.trim(),
+      faellig: haFaellig,
+      autor:   profile.nickname,
+      autorId: profile.uid,
+      doneBy:  [],
+      hiddenBy: [],
+      createdAt: serverTimestamp(),
+    });
+    setHaText(""); setHaFaellig("");
+    setHaAdding(false);
+  };
+
   const toggleHA = async (ha) => {
     const isDone = ha.doneBy?.includes(profile.uid);
     await updateDoc(doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id), {
       doneBy: isDone ? arrayRemove(profile.uid) : arrayUnion(profile.uid),
     });
+  };
+
+  const deleteHAForSelf = async (ha) => {
+    const haRef = doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id);
+    const newHiddenBy = [...(ha.hiddenBy || []), profile.uid];
+
+    // Prüfen ob alle Kursmitglieder die HA versteckt haben → dann aus DB löschen
+    try {
+      const membersSnap = await getDocs(
+        query(collection(db, "users"), where("kurseIds", "array-contains", kurs.id))
+      );
+      const memberIds = membersSnap.docs.map(d => d.data().uid);
+      const allHidden = memberIds.every(id => newHiddenBy.includes(id));
+      if (allHidden) {
+        await deleteDoc(haRef);
+        return;
+      }
+    } catch (e) {}
+
+    await updateDoc(haRef, { hiddenBy: arrayUnion(profile.uid) });
+  };
+
+  const deleteHAForAll = async (ha) => {
+    if (!window.confirm("HA für alle Mitglieder löschen?")) return;
+    await deleteDoc(doc(db, "klassen", klasseId, "kurse", kurs.id, "hausaufgaben", ha.id));
   };
 
   const sendMsg = async () => {
@@ -228,18 +335,28 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
 
   const TABS = [
     { id: "material",     label: "📁 Materialien",   count: materialien.length },
-    { id: "hausaufgaben", label: "📋 Hausaufgaben",   count: hausaufgaben.filter(h => !h.doneBy?.includes(profile.uid)).length || null },
+    { id: "hausaufgaben", label: "📋 Hausaufgaben",   count: visibleHAs.filter(h => !h.doneBy?.includes(profile.uid)).length || null },
     { id: "chat",         label: "💬 Chat",           count: null },
     { id: "pruefungen",   label: "📝 Prüfungen",      count: pruefungen.length || null },
   ];
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {viewer   && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
-      {uploading && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
-      {editing   && <EditKursModal kurs={kurs} klasseId={klasseId} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
-      {addingHA  && <AddHAModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingHA(false)} />}
-      {addingPr  && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
+      {viewer     && <MaterialViewer mat={viewer} klasseId={klasseId} kursId={kurs.id} onClose={() => setViewerId(null)} isAdmin={canEdit} />}
+      {uploading  && <UploadModal klasseId={klasseId} kursId={kurs.id} kursName={kurs.name} onClose={() => setUploading(false)} onUploaded={() => {}} />}
+      {editing    && <EditKursModal kurs={kurs} klasseId={klasseId} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
+      {addingPr   && <AddPruefungModal klasseId={klasseId} kursId={kurs.id} onClose={() => setAddingPr(false)} />}
+      {selectedHA && (
+        <HADetailModal
+          ha={selectedHA}
+          klasseId={klasseId}
+          kursId={kurs.id}
+          canEdit={selectedHA.autorId === profile.uid || selectedHA.autor === profile.nickname}
+          onClose={() => setSelectedHA(null)}
+          onDeleteForSelf={() => deleteHAForSelf(selectedHA)}
+          onDeleteForAll={() => deleteHAForAll(selectedHA)}
+        />
+      )}
 
       {/* Header */}
       <div style={{ background: t.bgCard, padding: "16px 28px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -334,27 +451,81 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
         {/* ── HAUSAUFGABEN ── */}
         {tab === "hausaufgaben" && (
           <div style={{ maxWidth: 580, display: "flex", flexDirection: "column", gap: 10 }}>
-            {isMember && <div style={{ marginBottom: 8 }}><Btn onClick={() => setAddingHA(true)} style={{ fontSize: 13 }}>+ HA eintragen</Btn></div>}
-            {hausaufgaben.length === 0
-            ? <Empty icon="✅" text="Keine Hausaufgaben!" />
-            : hausaufgaben.map(h => {
-            const done = h.doneBy?.includes(profile.uid);
-            return (
-            <div key={h.id} style={{ background: t.bgCard, borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${t.border}` }}>
-            <div onClick={() => isMember && toggleHA(h)}
-              style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${done ? t.success : t.border}`, background: done ? t.success : "transparent", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
-              {done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none" }}>{h.text}</div>
-              {h.faellig && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Fällig: {h.faellig}</div>}
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, background: done ? t.success + "20" : t.warning + "20", color: done ? t.success : t.warning }}>
-                {done ? "Erledigt" : h.faellig || "—"}
-                </span>
-                </div>
+
+            {/* Inline-Eingabeleiste */}
+            {isMember && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
+                <input
+                  value={haText}
+                  onChange={e => setHaText(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addHA()}
+                  placeholder="Hausaufgabe eintragen…"
+                  style={{
+                    flex: 1, background: t.bgSub, border: `1px solid ${t.border}`,
+                    borderRadius: 10, padding: "9px 14px",
+                    color: t.text, fontSize: 14, outline: "none",
+                  }}
+                />
+                <input
+                  type="date"
+                  value={haFaellig}
+                  onChange={e => setHaFaellig(e.target.value)}
+                  style={{
+                    background: t.bgSub, border: `1px solid ${t.border}`,
+                    borderRadius: 10, padding: "9px 12px",
+                    color: t.text, fontSize: 13, outline: "none",
+                    flexShrink: 0,
+                  }}
+                />
+                <button
+                  onClick={addHA}
+                  disabled={!haText.trim() || haAdding}
+                  style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: haText.trim() ? col : t.bgSub,
+                    border: "none", color: haText.trim() ? "#fff" : t.textMuted,
+                    fontSize: 18, cursor: haText.trim() ? "pointer" : "default",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all .15s",
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            )}
+
+            {/* HA Liste */}
+            {visibleHAs.length === 0
+              ? <Empty icon="✅" text="Keine Hausaufgaben!" />
+              : visibleHAs.map(h => {
+                const done = h.doneBy?.includes(profile.uid);
+                return (
+                  <div key={h.id} style={{ background: t.bgCard, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${t.border}`, cursor: "pointer", transition: "background .15s" }}
+                    onMouseOver={e => e.currentTarget.style.background = t.bgHover}
+                    onMouseOut={e => e.currentTarget.style.background = t.bgCard}>
+
+                    {/* Checkbox */}
+                    <div onClick={e => { e.stopPropagation(); isMember && toggleHA(h); }}
+                      style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${done ? t.success : t.border}`, background: done ? t.success : "transparent", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .15s" }}>
+                      {done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
+                    </div>
+
+                    {/* Text – klick öffnet Modal */}
+                    <div style={{ flex: 1 }} onClick={() => setSelectedHA(h)}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none" }}>{h.text}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
+                        {h.autor}{h.faellig ? ` · Fällig: ${h.faellig}` : ""}
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <span onClick={() => setSelectedHA(h)} style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, flexShrink: 0, background: done ? t.success + "20" : t.warning + "20", color: done ? t.success : t.warning }}>
+                      {done ? "Erledigt" : h.faellig || "—"}
+                    </span>
+                  </div>
                 );
-              })}
+              })
+            }
           </div>
         )}
 
@@ -398,17 +569,17 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
               : pruefungen.map(p => {
                 const tage = calcTage(p.datum);
                 return (
-                <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${col}` }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{tage ?? "?"}</span>
-                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)" }}>Tage</span>
+                  <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${col}` }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{tage ?? "?"}</span>
+                      <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)" }}>Tage</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{p.titel}</div>
+                      <div style={{ fontSize: 12, color: t.textMuted, marginTop: 3 }}>📅 {p.datum}</div>
+                    </div>
+                    <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: tage <= 7 ? t.danger : tage <= 14 ? t.warning : t.success }} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{p.titel}</div>
-                    <div style={{ fontSize: 12, color: t.textMuted, marginTop: 3 }}>📅 {p.datum}</div>
-                  </div>
-                  <div style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: tage <= 7 ? t.danger : tage <= 14 ? t.warning : t.success }} />
-                </div>
                 );
               })
             }
