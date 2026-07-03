@@ -57,7 +57,11 @@ export default function KurswahlModal({ alleKurse, onClose, onSave }) {
                 {selected.size} von {alleKurse.length} Kursen ausgewählt
               </div>
             </div>
-            <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <Btn variant="ghost" onClick={() => setSelected(new Set(alleKurse.map(k => k.id)))} style={{ fontSize: 12, padding: "5px 10px" }}>Alle wählen</Btn>
+              <Btn variant="ghost" onClick={() => setSelected(new Set())} style={{ fontSize: 12, padding: "5px 10px" }}>Alle abwählen</Btn>
+              <Btn variant="ghost" onClick={onClose} style={{ padding: "5px 9px", fontSize: 13 }}>✕</Btn>
+            </div>
           </div>
 
           {/* Suchleiste */}
