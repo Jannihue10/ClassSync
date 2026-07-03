@@ -1,10 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
 import Landing from "./pages/Landing";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+
+const isApp = window.location.hostname.startsWith("app.");
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -12,10 +14,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/"    element={<Landing />} />
-            <Route path="/app" element={<App />} />
-            {/* Fallback */}
-            <Route path="*"    element={<Navigate to="/" replace />} />
+            {isApp ? (
+              <Route path="/*" element={<App />} />
+            ) : (
+              <Route path="/*" element={<Landing />} />
+            )}
           </Routes>
         </BrowserRouter>
       </AuthProvider>

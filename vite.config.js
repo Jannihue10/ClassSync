@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'ClassSync',
         short_name: 'ClassSync',
         description: 'Alles für deine Klasse. An einem Ort.',
-        start_url: '/app',
+        start_url: "/",
         display: 'standalone',
         background_color: '#ffffff',
         theme_color: '#111111',

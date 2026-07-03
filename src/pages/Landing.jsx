@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 
 const C = {
   bg:       "#ffffff",
@@ -26,8 +25,10 @@ const STEPS = [
   { nr: "03", title: "Loslegen", desc: "Material hochladen, HAs eintragen, Prüfungstermine setzen – alles an einem Ort." },
 ];
 
+const goToApp      = () => { window.location.href = "https://app.classsync.de"; };
+const goToRegister = () => { window.location.href = "https://app.classsync.de?register=true"; };
+
 export default function Landing() {
-  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -58,15 +59,12 @@ export default function Landing() {
         padding: "0 48px", height: 60,
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
           <div style={{ width: 28, height: 28, background: C.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📚</div>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>ClassSync</span>
         </div>
-
-        {/* Buttons */}
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="nav-btn" onClick={() => navigate("/app")} style={{
+          <button className="nav-btn" onClick={goToApp} style={{
             background: "transparent", border: `1px solid ${C.border}`,
             borderRadius: 8, padding: "7px 16px",
             fontSize: 13, fontWeight: 500, color: C.textSub, cursor: "pointer",
@@ -74,7 +72,7 @@ export default function Landing() {
           }}>
             Anmelden
           </button>
-          <button className="nav-btn-accent" onClick={() => navigate("/app")} style={{
+          <button className="nav-btn-accent" onClick={goToRegister} style={{
             background: C.accent, border: "none",
             borderRadius: 8, padding: "7px 16px",
             fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer",
@@ -86,22 +84,19 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ── */}
-      <section style={{ paddingTop: 160, paddingBottom: 120, textAlign: "center", maxWidth: 720, margin: "0 auto", padding: "160px 24px 120px" }}>
+      <section style={{ padding: "160px 24px 120px", textAlign: "center", maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.bgSub, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 500, color: C.textSub, marginBottom: 32 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
           Kostenlos für Schüler
         </div>
-
         <h1 style={{ fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 700, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.text, marginBottom: 24 }}>
           Alles für deine Klasse.<br />An einem Ort.
         </h1>
-
         <p style={{ fontSize: 18, lineHeight: 1.7, color: C.textSub, maxWidth: 480, margin: "0 auto 48px", fontWeight: 400 }}>
           ClassSync bringt Materialien, Hausaufgaben, Stundenplan und Chat deiner Klasse zusammen – einfach, schnell und ohne App-Download.
         </p>
-
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <button className="nav-btn-accent" onClick={() => navigate("/app")} style={{
+          <button className="nav-btn-accent" onClick={goToRegister} style={{
             background: C.accent, border: "none", borderRadius: 10,
             padding: "13px 28px", fontSize: 15, fontWeight: 600,
             color: "#fff", cursor: "pointer", transition: "background .15s",
@@ -119,27 +114,17 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Divider ── */}
       <div style={{ height: 1, background: C.border, maxWidth: 1100, margin: "0 auto" }} />
 
       {/* ── Features ── */}
       <section id="features" style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 48px" }}>
         <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 12 }}>
-            Alles was du brauchst
-          </h2>
-          <p style={{ fontSize: 16, color: C.textSub, maxWidth: 440, margin: "0 auto" }}>
-            Kein Chaos mehr in WhatsApp-Gruppen. ClassSync hält alles strukturiert.
-          </p>
+          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 12 }}>Alles was du brauchst</h2>
+          <p style={{ fontSize: 16, color: C.textSub, maxWidth: 440, margin: "0 auto" }}>Kein Chaos mehr in WhatsApp-Gruppen. ClassSync hält alles strukturiert.</p>
         </div>
-
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           {FEATURES.map((f, i) => (
-            <div key={i} className="feature-card" style={{
-              border: `1px solid ${C.border}`, borderRadius: 14,
-              padding: "28px 28px",
-              transition: "border-color .2s",
-            }}>
+            <div key={i} className="feature-card" style={{ border: `1px solid ${C.border}`, borderRadius: 14, padding: "28px", transition: "border-color .2s" }}>
               <div style={{ fontSize: 24, marginBottom: 16 }}>{f.icon}</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 8 }}>{f.title}</div>
               <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.65 }}>{f.desc}</div>
@@ -148,20 +133,14 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Divider ── */}
       <div style={{ height: 1, background: C.border, maxWidth: 1100, margin: "0 auto" }} />
 
       {/* ── How it works ── */}
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "100px 48px" }}>
         <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 12 }}>
-            In 3 Schritten loslegen
-          </h2>
-          <p style={{ fontSize: 16, color: C.textSub }}>
-            Keine Installation, kein Abo, kein Aufwand.
-          </p>
+          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 12 }}>In 3 Schritten loslegen</h2>
+          <p style={{ fontSize: 16, color: C.textSub }}>Keine Installation, kein Abo, kein Aufwand.</p>
         </div>
-
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 32 }}>
           {STEPS.map((s, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -174,18 +153,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Divider ── */}
       <div style={{ height: 1, background: C.border, maxWidth: 1100, margin: "0 auto" }} />
 
       {/* ── CTA ── */}
       <section style={{ textAlign: "center", padding: "100px 24px" }}>
-        <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 16 }}>
-          Bereit loszulegen?
-        </h2>
-        <p style={{ fontSize: 16, color: C.textSub, marginBottom: 40 }}>
-          Kostenlos, ohne App-Download, direkt im Browser.
-        </p>
-        <button className="nav-btn-accent" onClick={() => navigate("/app")} style={{
+        <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: C.text, marginBottom: 16 }}>Bereit loszulegen?</h2>
+        <p style={{ fontSize: 16, color: C.textSub, marginBottom: 40 }}>Kostenlos, ohne App-Download, direkt im Browser.</p>
+        <button className="nav-btn-accent" onClick={goToRegister} style={{
           background: C.accent, border: "none", borderRadius: 10,
           padding: "14px 32px", fontSize: 15, fontWeight: 600,
           color: "#fff", cursor: "pointer", transition: "background .15s",

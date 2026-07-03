@@ -23,7 +23,9 @@ export default function App() {
   const { user, profile, loading } = useAuth();
   const { t } = useTheme();
 
-  const [authMode, setAuthMode]     = useState("login");   // login | register
+  const [authMode, setAuthMode] = useState(
+    new URLSearchParams(window.location.search).get("register") === "true" ? "register" : "login"
+  );
   const [klasse, setKlasse]         = useState(null);
   const [kurse, setKurse]           = useState([]);
   const [activeKurs, setActiveKurs] = useState(null);
