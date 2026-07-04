@@ -12,7 +12,13 @@ import UploadModal from "../components/UploadModal";
 import EditKursModal from "../components/EditKursModal";
 import { FACH_COLORS, FACH_ICONS, MAT_TYPEN, MAT_COLORS } from "../styles/theme";
 
-// ── Hilfsfunktion: Tage bis Datum ────────────────────────────────────────────
+function formatDatum(datum) {
+  if (!datum) return null;
+  const [y, m, d] = datum.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+// ── Hilfsfunktion: Tage bis Datum ───────────────────────────────────────────
 function calcTage(datum) {
   if (!datum) return null;
   const today = new Date();
@@ -514,13 +520,13 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
                     <div style={{ flex: 1 }} onClick={() => setSelectedHA(h)}>
                       <div style={{ fontSize: 14, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none" }}>{h.text}</div>
                       <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
-                        {h.autor}{h.faellig ? ` · Fällig: ${h.faellig}` : ""}
+                        {h.autor}{h.faellig ? ` · Fällig: ${formatDatum(h.faellig)}` : ""}
                       </div>
                     </div>
 
                     {/* Status Badge */}
                     <span onClick={() => setSelectedHA(h)} style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 7, flexShrink: 0, background: done ? t.success + "20" : t.warning + "20", color: done ? t.success : t.warning }}>
-                      {done ? "Erledigt" : h.faellig || "—"}
+                      {done ? "Erledigt" : formatDatum(h.faellig) || "—"}
                     </span>
                   </div>
                 );

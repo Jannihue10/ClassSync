@@ -6,6 +6,12 @@ import { useTheme } from "../context/ThemeContext";
 import { Btn, SectionTitle } from "./UI";
 import { FACH_COLORS } from "../styles/theme";
 
+function formatDatum(datum) {
+  if (!datum) return null;
+  const [y, m, d] = datum.split("-");
+  return `${d}.${m}.${y}`;
+}
+
 function calcTage(datum) {
   if (!datum) return null;
   const today = new Date();
@@ -95,7 +101,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
                 </div>
                 {h.faellig && (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: t.warning + "20", color: t.warning, whiteSpace: "nowrap" }}>
-                    {h.faellig}
+                    {formatDatum(h.faellig)}
                   </span>
                 )}
               </div>
@@ -115,7 +121,7 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.titel}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted }}>{p.fach} · {p.datum}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{p.fach} · {formatDatum(p.datum)}</div>
                 </div>
               </div>
             ))
