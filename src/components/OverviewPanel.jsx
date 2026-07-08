@@ -65,7 +65,9 @@ export default function OverviewPanel({ klasse, kurse, onClose }) {
     return () => unsubs.forEach(u => u());
   }, [klasse?.id, meineKurse.length]);
 
-  const sortedPrs = [...allPrs].sort((a, b) => (calcTage(a.datum) ?? 999) - (calcTage(b.datum) ?? 999));
+  const sortedPrs = [...allPrs]
+    .filter(p => (calcTage(p.datum) ?? 0) >= 0)
+    .sort((a, b) => (calcTage(a.datum) ?? 999) - (calcTage(b.datum) ?? 999));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 900, display: "flex" }}>

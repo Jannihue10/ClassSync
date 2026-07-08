@@ -574,11 +574,12 @@ export default function KursView({ kurs, klasseId, klasseAdminIds = [], onBack }
               ? <Empty icon="🎉" text="Keine Prüfungen eingetragen" />
               : pruefungen.map(p => {
                 const tage = calcTage(p.datum);
+                const vergangen = tage !== null && tage < 0;
                 return (
-                  <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${col}` }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 12, background: col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{tage ?? "?"}</span>
-                      <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)" }}>Tage</span>
+                  <div key={p.id} style={{ background: t.bgCard, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${t.border}`, borderLeft: `3px solid ${vergangen ? t.border : col}`, opacity: vergangen ? 0.4 : 1 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: vergangen ? t.bgSub : col, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: vergangen ? t.textMuted : "#fff", lineHeight: 1 }}>{vergangen ? "✓" : (tage ?? "?")}</span>
+                      <span style={{ fontSize: 8, color: vergangen ? t.textMuted : "rgba(255,255,255,0.75)" }}>{vergangen ? "vorbei" : "Tage"}</span>
                     </div>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 600, color: t.text }}>{p.titel}</div>
